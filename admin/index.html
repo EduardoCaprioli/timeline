@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Timeline · Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../config.js" onerror="document.body.classList.add('no-config')"></script>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-screen">
+    <div id="login-card">
+      <div id="login-logo">Timeline <span>Admin</span></div>
+      <p id="login-hint">Acesse com o usuário criado em <code>Supabase → Authentication</code>.</p>
+      <input id="login-email" type="email" placeholder="seu@email.com" autocomplete="email" />
+      <input id="login-password" type="password" placeholder="senha" autocomplete="current-password" />
+      <button id="login-btn">Entrar</button>
+      <div id="login-error"></div>
+    </div>
+  </div>
+
+  <!-- PAINEL -->
+  <div id="admin-app" style="display:none;">
+
+    <aside id="sidebar">
+      <div id="sidebar-logo">Timeline <span>Admin</span></div>
+
+      <nav>
+        <div class="nav-section">Conteúdo</div>
+        <a class="nav-item active" data-page="contributions">
+          <span class="ni-icon">⏳</span>Contribuições
+          <span class="ni-badge" id="pending-count">0</span>
+        </a>
+        <a class="nav-item" data-page="events">
+          <span class="ni-icon">◎</span>Eventos
+        </a>
+        <a class="nav-item" data-page="new-event">
+          <span class="ni-icon">+</span>Novo evento
+        </a>
+
+        <div class="nav-section">Análise</div>
+        <a class="nav-item" data-page="analytics">
+          <span class="ni-icon">▲</span>Acessos
+        </a>
+        <a class="nav-item" data-page="searches">
+          <span class="ni-icon">⌕</span>Buscas
+        </a>
+      </nav>
+
+      <div id="sidebar-user">
+        <span id="user-email"></span>
+        <button id="logout-btn">Sair</button>
+      </div>
+    </aside>
+
+    <main id="main-content">
+
+      <!-- CONTRIBUIÇÕES -->
+      <div id="page-contributions" class="page active">
+        <div class="page-header">
+          <div>
+            <h1>Contribuições</h1>
+            <p id="contributions-subtitle">Carregando...</p>
+          </div>
+          <div class="header-actions">
+            <select id="filter-status">
+              <option value="pending">Pendentes</option>
+              <option value="approved">Aprovadas</option>
+              <option value="rejected">Rejeitadas</option>
+              <option value="">Todas</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="stats-grid">
+          <div class="stat-card"><div class="stat-val" id="stat-pending">—</div><div class="stat-label">Pendentes</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-approved">—</div><div class="stat-label">Aprovadas</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-rejected">—</div><div class="stat-label">Rejeitadas</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-total-events">—</div><div class="stat-label">Eventos publicados</div></div>
+        </div>
+
+        <div class="table-card">
+          <table id="contributions-table">
+            <thead>
+              <tr>
+                <th>Evento</th>
+                <th>Alteração</th>
+                <th>Autor</th>
+                <th>Origem</th>
+                <th>Data</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="contributions-tbody">
+              <tr><td colspan="6" class="empty-state">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EVENTOS -->
+      <div id="page-events" class="page">
+        <div class="page-header">
+          <div>
+            <h1>Eventos</h1>
+            <p id="events-subtitle">Carregando...</p>
+          </div>
+          <div class="header-actions">
+            <input id="events-search" type="text" placeholder="Buscar evento..." />
+            <select id="filter-track">
+              <option value="">Todas as pistas</option>
+              <option value="hardware">Hardware</option>
+              <option value="software">Software</option>
+              <option value="ia">IA</option>
+              <option value="rede">Rede</option>
+              <option value="cultura">Cultura</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-card">
+          <table id="events-table">
+            <thead>
+              <tr>
+                <th>Ano</th>
+                <th>Título</th>
+                <th>Pista</th>
+                <th>Importância</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="events-tbody">
+              <tr><td colspan="6" class="empty-state">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- NOVO EVENTO -->
+      <div id="page-new-event" class="page">
+        <div class="page-header">
+          <div>
+            <h1>Adicionar evento</h1>
+            <p>Campos com * são obrigatórios.</p>
+          </div>
+        </div>
+        <form id="new-event-form" class="form-card">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>ID único *</label>
+              <input type="text" name="id" required placeholder="linux-1991" pattern="[a-z0-9-]+" />
+              <small>Formato: slug-ano. Será a URL #/e/&lt;id&gt;.</small>
+            </div>
+            <div class="form-group">
+              <label>Ano *</label>
+              <input type="number" name="year" required min="1800" max="2100" />
+            </div>
+            <div class="form-group">
+              <label>Mês *</label>
+              <input type="number" name="month" required min="1" max="12" />
+            </div>
+            <div class="form-group">
+              <label>Data formatada *</label>
+              <input type="text" name="date_display" required placeholder="AGO · 1991" />
+            </div>
+            <div class="form-group">
+              <label>Era *</label>
+              <input type="text" name="era" required placeholder="Era da Computação" />
+            </div>
+            <div class="form-group">
+              <label>Pista *</label>
+              <select name="track" required>
+                <option value="">Selecionar...</option>
+                <option value="hardware">Hardware</option>
+                <option value="software">Software</option>
+                <option value="ia">IA</option>
+                <option value="rede">Redes & Internet</option>
+                <option value="cultura">Cultura & Sociedade</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>Título *</label>
+              <input type="text" name="title" required />
+            </div>
+            <div class="form-group full">
+              <label>Descrição *</label>
+              <textarea name="description" required rows="4"></textarea>
+            </div>
+            <div class="form-group full">
+              <label>Tags (vírgula)</label>
+              <input type="text" name="tags" placeholder="hardware, cultura" />
+            </div>
+            <div class="form-group full">
+              <label>Causado por (IDs, vírgula)</label>
+              <input type="text" name="parents" placeholder="turing-1936, transistor-1947" />
+            </div>
+            <div class="form-group">
+              <label>Importância (1-5)</label>
+              <select name="importance">
+                <option value="1">1 — Baixa</option>
+                <option value="2">2</option>
+                <option value="3" selected>3 — Média</option>
+                <option value="4">4</option>
+                <option value="5">5 — Alta</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tipo de imagem</label>
+              <select name="img_type">
+                <option value="contributed">Contribuída</option>
+                <option value="ai">Gerada por IA</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>URL da imagem hero</label>
+              <input type="url" name="img_url" placeholder="https://images.unsplash.com/..." />
+            </div>
+            <div class="form-group full">
+              <label>Crédito da imagem</label>
+              <input type="text" name="img_credit" />
+            </div>
+            <div class="form-group full">
+              <label>Citação</label>
+              <input type="text" name="quote_text" />
+            </div>
+            <div class="form-group">
+              <label>Autor da citação</label>
+              <input type="text" name="quote_by" />
+            </div>
+            <div class="form-group">
+              <label>YouTube ID</label>
+              <input type="text" name="video_id" placeholder="cwZb2mqId0A" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="reset" class="btn-ghost">Limpar</button>
+            <button type="submit" class="btn-primary">Publicar</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ANALYTICS -->
+      <div id="page-analytics" class="page">
+        <div class="page-header"><h1>Acessos</h1></div>
+        <div id="stats-grid-analytics" class="stats-grid">
+          <div class="stat-card"><div class="stat-val" id="stat-views-today">—</div><div class="stat-label">Hoje</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-views-week">—</div><div class="stat-label">Esta semana</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-views-total">—</div><div class="stat-label">Total</div></div>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><span>Eventos mais acessados</span></div>
+          <table>
+            <thead><tr><th>Evento</th><th>Visualizações</th></tr></thead>
+            <tbody id="top-events-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BUSCAS -->
+      <div id="page-searches" class="page">
+        <div class="page-header"><h1>Buscas</h1></div>
+        <div class="table-card">
+          <table>
+            <thead><tr><th>Termo</th><th>Volume</th><th>Gerou IA?</th></tr></thead>
+            <tbody id="searches-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL: revisar contribuição -->
+  <div id="review-modal" class="modal">
+    <div class="modal-bg"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="review-close">×</button>
+      <h2 id="review-title">Revisar contribuição</h2>
+      <div id="review-body"></div>
+      <div id="review-actions">
+        <textarea id="rejection-reason" placeholder="Motivo da rejeição (obrigatório ao rejeitar)..."></textarea>
+        <div class="review-btns">
+          <button id="btn-approve" class="btn-approve">✓ Aprovar e publicar</button>
+          <button id="btn-reject" class="btn-reject">✗ Rejeitar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

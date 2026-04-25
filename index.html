@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Timeline · Uma nova forma de explorar a história da tecnologia. Powered by AI, curated by community." />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>Timeline · História da Tecnologia</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@200;300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Supabase SDK (precisa carregar antes de supabase.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- ════════ CINEMATIC INTRO ════════ -->
+    <div id="intro">
+      <canvas id="intro-stars"></canvas>
+      <div id="intro-stack">
+        <div id="intro-year" class="i-fade">1876</div>
+        <div id="intro-line"></div>
+        <div id="intro-label" class="i-fade">Timeline</div>
+        <div id="intro-tagline" class="i-fade">Uma nova forma de explorar a história</div>
+      </div>
+      <button id="intro-skip">pular ›</button>
+    </div>
+
+    <!-- ════════ HOME ════════ -->
+    <div id="home">
+      <div id="home-theme-switch">
+        <button class="ht-btn active" data-theme="tech">Tecnologia</button>
+        <button class="ht-btn" data-theme="ia">IA</button>
+      </div>
+
+      <div id="home-mark"><span>Timeline</span> · História da Tecnologia</div>
+      <h1 id="home-h1">O que aconteceu<br><strong>no mundo</strong>?</h1>
+      <p id="home-sub">Explore os marcos que moldaram a era digital, de 1876 até hoje.</p>
+
+      <div id="search-w">
+        <input id="search-i" type="text" placeholder="Busque um ano, evento, tecnologia — ou pergunte à IA..." autocomplete="off" />
+        <button id="search-arrow" aria-label="Buscar">→</button>
+      </div>
+
+      <div id="sugs">
+        <span class="sug" data-q="iPhone">iPhone</span>
+        <span class="sug" data-q="1969">1969</span>
+        <span class="sug" data-q="Internet">Internet</span>
+        <span class="sug" data-q="IA">Inteligência Artificial</span>
+        <span class="sug" data-q="Apple">Apple</span>
+        <span class="sug" id="sug-all">Ver linha completa →</span>
+      </div>
+
+      <div id="home-foot">Powered by AI · Curated by Community</div>
+    </div>
+
+    <!-- ════════ TIMELINE ════════ -->
+    <div id="tl">
+      <div id="tl-bg"><div id="hero-img"></div><div id="hero-img-next"></div></div>
+      <div id="img-loading"></div>
+
+      <div id="topbar">
+        <div id="tb-logo"><span>Timeline</span></div>
+
+        <div id="tb-actions">
+          <button class="tb-btn mobile-hide" id="btn-story" title="Story Mode">✦ Story</button>
+          <button class="tb-btn" id="btn-share" title="Compartilhar">↗ Share</button>
+          <button class="tb-btn" id="btn-help" title="Atalhos">?</button>
+          <button class="tb-btn mobile-hide" id="btn-contribute">Contribuir</button>
+        </div>
+      </div>
+
+      <!-- Linear view -->
+      <div id="linear-view" class="view active">
+        <div id="yaxis"></div>
+
+        <div id="content">
+          <div id="stamp" class="f"></div>
+          <h2 id="title" class="f"></h2>
+          <p id="desc" class="f"></p>
+          <div id="tags" class="f"></div>
+
+          <div id="quote-box" class="f"></div>
+          <div id="parents-box" class="f"></div>
+
+          <div id="cta">
+            <button class="cta-btn cta-primary" id="btn-explore">✦ Aprofundar com IA</button>
+            <button class="cta-btn cta-ghost" id="btn-next">Próximo →</button>
+            <button class="cta-btn cta-ghost" id="btn-video" style="display:none">▶ Vídeo</button>
+          </div>
+        </div>
+
+        <div id="img-credit" class="f">
+          <span id="img-credit-icon">◆</span>
+          <span id="img-credit-text">Carregando...</span>
+        </div>
+
+        <svg id="causality-svg" class="f"></svg>
+      </div>
+
+      <!-- Scrubber (linear only) -->
+      <div id="scrub">
+        <div id="mobile-year"></div>
+        <div id="scrub-row">
+          <button id="play-btn" aria-label="Reproduzir">▶</button>
+          <span>Linha do tempo</span>
+          <span id="scrub-info"></span>
+        </div>
+        <div id="scrub-track">
+          <div id="scrub-line"></div>
+          <div id="scrub-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ AI PANEL ════════ -->
+    <div id="ai-panel">
+      <div id="ai-header">
+        <div>
+          <div id="ai-title">✦ Aprofundar</div>
+          <div id="ai-subtitle">Claude vai expandir este momento</div>
+        </div>
+        <button id="ai-close" aria-label="Fechar">×</button>
+      </div>
+
+      <div id="ai-tabs">
+        <button class="ai-tab active" data-mode="deep">Aprofundar</button>
+        <button class="ai-tab" data-mode="counterfactual">E se não tivesse acontecido?</button>
+        <button class="ai-tab" data-mode="chat">Pergunte</button>
+      </div>
+
+      <div id="ai-body"></div>
+
+      <div id="ai-input-wrap">
+        <input id="ai-input" type="text" placeholder="Pergunte algo sobre este momento..." />
+        <button id="ai-send" aria-label="Enviar">→</button>
+      </div>
+
+      <div id="ai-key-notice">
+        <span>Use sua chave Anthropic para IA real. </span>
+        <a href="#" id="ai-key-link">Configurar</a>
+        <span> · ou modo demo.</span>
+      </div>
+    </div>
+
+    <!-- ════════ SHARE MODAL ════════ -->
+    <div id="share-modal" class="modal">
+      <div class="modal-bg"></div>
+      <div class="modal-content">
+        <button class="modal-close" data-close="share-modal">×</button>
+        <h3>Compartilhar este momento</h3>
+        <div id="share-preview"></div>
+        <div class="share-url-row">
+          <input id="share-url-input" type="text" readonly />
+          <button id="share-copy">Copiar</button>
+        </div>
+        <div class="share-actions">
+          <button id="share-download">↓ Baixar imagem (PNG)</button>
+          <a id="share-twitter" target="_blank" rel="noopener">↗ Twitter/X</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════ STORY MODE MODAL ════════ -->
+    <div id="story-modal" class="modal">
+      <div class="modal-bg"></div>
+      <div class="modal-content modal-wide">
+        <button class="modal-close" data-close="story-modal">×</button>
+        <h3>✦ Story Mode</h3>
+        <p class="story-sub">Escolha 2 a 5 momentos. Claude narrará a história que os conecta.</p>
+        <div id="story-picker"></div>
+        <div class="story-actions">
+          <span id="story-count">0 selecionados</span>
+          <button id="story-start" disabled>Iniciar narrativa →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Story playback overlay -->
+    <div id="story-play">
+      <div id="story-play-bg"></div>
+      <div id="story-play-content">
+        <div id="story-play-era"></div>
+        <div id="story-play-text"></div>
+      </div>
+      <div id="story-play-controls">
+        <span id="story-play-progress"></span>
+        <button id="story-play-close">Sair da narrativa</button>
+      </div>
+    </div>
+
+    <!-- ════════ HELP MODAL ════════ -->
+    <div id="help-modal" class="modal">
+      <div class="modal-bg"></div>
+      <div class="modal-content">
+        <button class="modal-close" data-close="help-modal">×</button>
+        <h3>Atalhos</h3>
+        <dl class="kbd-list">
+          <dt><kbd>→</kbd></dt><dd>Próximo evento</dd>
+          <dt><kbd>←</kbd></dt><dd>Evento anterior</dd>
+          <dt><kbd>Espaço</kbd></dt><dd>Play / Pause</dd>
+          <dt><kbd>A</kbd></dt><dd>Aprofundar com IA</dd>
+          <dt><kbd>S</kbd></dt><dd>Compartilhar</dd>
+          <dt><kbd>?</kbd></dt><dd>Este menu</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Voltar / Fechar</dd>
+          <dt><kbd>/</kbd></dt><dd>Focar busca (na home)</dd>
+        </dl>
+      </div>
+    </div>
+
+    <!-- ════════ API KEY MODAL ════════ -->
+    <div id="key-modal" class="modal">
+      <div class="modal-bg"></div>
+      <div class="modal-content">
+        <button class="modal-close" data-close="key-modal">×</button>
+        <h3>Chave Anthropic</h3>
+        <p class="key-desc">Cole sua chave para habilitar o modo IA real. Fica armazenada apenas no seu navegador (<code>localStorage</code>). É usada somente em chamadas diretas à Anthropic.</p>
+        <input id="key-input" type="password" placeholder="sk-ant-..." />
+        <div class="key-actions">
+          <button id="key-save">Salvar</button>
+          <button id="key-clear" class="ghost">Remover</button>
+        </div>
+        <p class="key-mini">Sem chave? <a href="#" id="key-demo">usar modo demo →</a></p>
+      </div>
+    </div>
+
+    <!-- ════════ CONTRIBUTE MODAL ════════ -->
+    <div id="contribute-modal" class="modal">
+      <div class="modal-bg"></div>
+      <div class="modal-content">
+        <button class="modal-close" data-close="contribute-modal">×</button>
+        <h3>Contribuir para este momento</h3>
+        <p class="modal-sub" id="contribute-event-name"></p>
+
+        <div id="contribute-type-picker">
+          <button class="ctype-btn active" data-type="edit_text" data-field="description">✎ Corrigir texto</button>
+          <button class="ctype-btn" data-type="edit_image" data-field="img_url">🖼 Sugerir imagem (URL)</button>
+          <button class="ctype-btn" data-type="add_quote" data-field="quote_text">❝ Adicionar citação</button>
+          <button class="ctype-btn" data-type="fix_date" data-field="date_display">📅 Corrigir data</button>
+        </div>
+
+        <textarea id="contribute-text" placeholder="Cole aqui o texto corrigido, URL da imagem, citação ou data corrigida..." rows="5"></textarea>
+        <div class="contribute-row">
+          <input id="contribute-name" type="text" placeholder="Seu nome (opcional)" />
+          <input id="contribute-email" type="email" placeholder="Email (opcional, para acompanhar)" />
+        </div>
+        <button id="contribute-submit" class="cta-btn cta-primary">Enviar sugestão</button>
+
+        <p class="contribute-footer">
+          Toda contribuição é revisada por um curador antes de ser publicada.
+        </p>
+      </div>
+    </div>
+
+    <!-- ════════ TOAST ════════ -->
+    <div id="toast"></div>
+
+  </div>
+
+  <script src="data.js"></script>
+  <script src="config.js" onerror="console.warn('config.js ausente — usando data.js local. Copie config.example.js para config.js e preencha as chaves do Supabase para ativar o backend.')"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
