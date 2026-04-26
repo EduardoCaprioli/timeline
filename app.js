@@ -22,6 +22,7 @@
     aiAbort: null,
     aiMode: 'deep',
     aiHistory: {},
+    wikiCache: {},
     constell: null,
   };
 
@@ -681,7 +682,7 @@
       return;
     }
 
-    toast('✦ Buscando com IA...', 4000);
+    toast('Buscando com IA...', 4000);
     try {
       const generated = await aiGenerateEvent(query, key);
       if (!generated || generated.error) {
@@ -711,7 +712,7 @@
       }
 
       enterTimeline();
-      toast('✦ Evento gerado pela IA · aguarda curadoria', 3800);
+      toast('Evento gerado pela IA · aguarda curadoria', 3800);
     } catch (err) {
       enterTimeline();
       toast('Erro na busca IA: ' + err.message, 3500);
@@ -808,11 +809,22 @@ Regras:
 
   function refreshAIPanel(auto) {
     const ev = state.events[state.idx];
-    $('ai-title').innerHTML = { deep: '✦ Aprofundar', counterfactual: '◇ E se não tivesse acontecido?', chat: '· Pergunte' }[state.aiMode];
+    const titles = { deep: 'Aprofundar', counterfactual: 'E se não tivesse acontecido?', chat: 'Pergunte', wiki: 'Wikipedia' };
+    $('ai-title').textContent = titles[state.aiMode] || 'Aprofundar';
     $('ai-subtitle').textContent = ev.y + ' · ' + ev.t;
 
     const body = $('ai-body');
     const inputWrap = $('ai-input-wrap');
+    const keyNotice = $('ai-key-notice');
+
+    if (state.aiMode === 'wiki') {
+      inputWrap.style.display = 'none';
+      if (keyNotice) keyNotice.style.display = 'none';
+      loadWiki(ev);
+      return;
+    }
+
+    if (keyNotice) keyNotice.style.display = '';
 
     if (state.aiMode === 'chat') {
       inputWrap.style.display = '';
@@ -956,6 +968,62 @@ Regras:
       return `Sem **${ev.t.toLowerCase()}**, o caminho da tecnologia teria sido outro. ${parentsStr ? `As bases já estavam lá — ${parentsStr} —, ` : ''}mas o momento crítico teria chegado mais tarde, talvez em outro país, com outros protagonistas.\n\nA cultura digital como conhecemos seria atrasada em uma década ou se moldaria em torno de outros centros de poder. Algumas empresas gigantes que dependem deste marco simplesmente **não existiriam**.\n\nO mais provável: outra tecnologia preencheria o vácuo, mas com prioridades, valores e limitações diferentes. A internet que você está usando agora seria estranha para seus olhos.\n\n**[Modo demo · configure sua chave para um cenário contrafactual detalhado.]**`;
     }
     return '[Modo demo]';
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // WIKIPEDIA
+  // ══════════════════════════════════════════════════════════
+  async function fetchWikiSummary(title) {
+    const encoded = encodeURIComponent(title);
+    for (const lang of ['pt', 'en']) {
+      try {
+        const resp = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encoded}`, {
+          headers: { Accept: 'application/json; charset=utf-8; profile="https://www.mediawiki.org/wiki/Specs/Summary/1.0.0"' },
+        });
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        if (data.type === 'https://mediawiki.org/wiki/HyperSwitch/errors/not_found') continue;
+        if (!data.extract || data.extract.length < 30) continue;
+        return Object.assign(data, { lang });
+      } catch (e) { /* tenta próximo */ }
+    }
+    return null;
+  }
+
+  async function loadWiki(ev) {
+    const body = $('ai-body');
+    if (ev.id in state.wikiCache) {
+      renderWikiResult(body, state.wikiCache[ev.id]);
+      return;
+    }
+    body.innerHTML = '<div class="msg-ai typing"></div>';
+    const result = await fetchWikiSummary(ev.t);
+    state.wikiCache[ev.id] = result;
+    renderWikiResult(body, result);
+  }
+
+  function renderWikiResult(body, data) {
+    if (!data) {
+      body.innerHTML = '<div class="empty">Nenhum artigo encontrado na Wikipedia para este evento.</div>';
+      return;
+    }
+    const langNote = data.lang === 'en' ? ' <span class="wiki-lang">em inglês</span>' : '';
+    const thumb = (data.thumbnail && data.thumbnail.source)
+      ? `<img class="wiki-thumb" src="${escapeHtml(data.thumbnail.source)}" alt="" />`
+      : '';
+    const paras = (data.extract || '').split(/\n+/).filter(Boolean).map((p) => `<p>${escapeHtml(p)}</p>`).join('');
+    const pageUrl = data.content_urls && data.content_urls.desktop && data.content_urls.desktop.page;
+    const link = pageUrl ? `<a class="wiki-link" href="${escapeHtml(pageUrl)}" target="_blank" rel="noopener">Ler artigo completo na Wikipedia →</a>` : '';
+    body.innerHTML = `
+      <div class="wiki-block">
+        ${thumb}
+        <div class="wiki-body">
+          <div class="wiki-title">${escapeHtml(data.title)}${langNote}</div>
+          <div class="wiki-extract">${paras}</div>
+          ${link}
+        </div>
+      </div>
+      <div class="wiki-attr">Fonte: Wikipedia · Licença CC BY-SA 3.0</div>`;
   }
 
   async function sendChatMessage(text) {
