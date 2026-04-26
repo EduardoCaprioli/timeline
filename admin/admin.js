@@ -22,6 +22,7 @@
     contributions: [],
     events: [],
     domains: [],
+    settings: {},
     reviewing: null,
   };
 
@@ -111,6 +112,7 @@
       analytics: loadAnalytics,
       searches: loadSearches,
       domains: loadDomains,
+      media: loadMediaAI,
     };
     if (loaders[page]) loaders[page]();
   }
@@ -557,6 +559,74 @@
     if (error) { toast('Erro: ' + error.message, 'error'); return; }
     toast('Domínio excluído', 'info');
     loadDomains();
+  }
+
+  // ── MÍDIA IA ──────────────────────────────────────────────
+  async function loadMediaAI() {
+    // Estatísticas de cobertura de imagens
+    const [noImg, aiImg, total] = await Promise.all([
+      db.from('events').select('id', { count: 'exact', head: true }).is('img_url', null),
+      db.from('events').select('id', { count: 'exact', head: true }).eq('img_type', 'ai'),
+      db.from('events').select('id', { count: 'exact', head: true }),
+    ]);
+    $('stat-media-no-img').textContent = noImg.count ?? '—';
+    $('stat-media-ai').textContent = aiImg.count ?? '—';
+    $('stat-media-total').textContent = total.count ?? '—';
+
+    // Carregar configurações atuais
+    try {
+      const { data, error } = await db.from('settings').select('key, value');
+      if (error) throw error;
+      state.settings = {};
+      (data || []).forEach(({ key, value }) => { state.settings[key] = value; });
+    } catch (e) {
+      toast('Execute supabase-migration-settings.sql para ativar esta página', 'error');
+      return;
+    }
+
+    // Aplicar valores nos controles e registrar listeners (uma vez)
+    attachMediaListeners();
+    $('toggle-ai-images').checked = state.settings.ai_images_enabled !== false;
+    const modelSel = $('ai-images-model');
+    if (modelSel && state.settings.ai_images_model) modelSel.value = state.settings.ai_images_model;
+  }
+
+  async function saveSetting(key, value) {
+    const { error } = await db.from('settings').upsert(
+      { key, value, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    if (error) throw error;
+  }
+
+  let mediaListenersAttached = false;
+  function attachMediaListeners() {
+    if (mediaListenersAttached) return;
+    mediaListenersAttached = true;
+
+    const toggleImages = $('toggle-ai-images');
+    const modelSel = $('ai-images-model');
+    if (!toggleImages || !modelSel) return;
+
+    toggleImages.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      try {
+        await saveSetting('ai_images_enabled', enabled);
+        toast(enabled ? 'Geração de imagens ativada' : 'Geração de imagens desativada', 'success');
+      } catch (err) {
+        toast('Erro ao salvar: ' + err.message, 'error');
+        e.target.checked = !enabled;
+      }
+    });
+
+    modelSel.addEventListener('change', async (e) => {
+      try {
+        await saveSetting('ai_images_model', e.target.value);
+        toast('Modelo atualizado', 'success');
+      } catch (err) {
+        toast('Erro ao salvar: ' + err.message, 'error');
+      }
+    });
   }
 
   // ── INIT ──────────────────────────────────────────────────

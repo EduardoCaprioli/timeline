@@ -366,6 +366,62 @@ tbody tr:hover{background:var(--hover);}
 #toast.success{background:var(--good);}
 #toast.error{background:var(--bad);}
 
+/* ── BADGES EXTRAS ── */
+.b-free{background:#e0f5ec;color:#1e7a4a;}
+.b-soon{background:#f0f1f4;color:#888;}
+
+/* ── SETTINGS PAGE ── */
+.settings-section{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;margin-bottom:20px;overflow:hidden;
+}
+.settings-section-header{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:20px;padding:20px 24px;border-bottom:1px solid var(--border);
+}
+.settings-section-header h2{
+  font-size:14px;font-weight:500;color:var(--ink);
+  display:flex;align-items:center;gap:8px;
+}
+.settings-section-header p{font-size:12px;color:var(--ink-mute);margin-top:3px;font-weight:300;}
+.settings-cards{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:14px;padding:20px 24px;
+}
+.settings-card{
+  border:1px solid var(--border);border-radius:8px;padding:16px;
+  background:#fafbfd;transition:border 0.15s;
+}
+.settings-card:not(.disabled):hover{border-color:var(--accent);}
+.settings-card.disabled{opacity:0.52;pointer-events:none;}
+.scard-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.scard-name{font-size:13px;font-weight:500;color:var(--ink);}
+.scard-desc{font-size:11px;color:var(--ink-soft);line-height:1.6;}
+.scard-footer{margin-top:12px;font-size:11px;}
+.scard-footer a{color:var(--accent);text-decoration:underline;}
+
+/* ── TOGGLE SWITCH ── */
+.toggle-switch{
+  position:relative;display:inline-flex;align-items:center;
+  width:44px;height:24px;flex-shrink:0;cursor:pointer;
+}
+.toggle-switch.disabled{opacity:0.4;cursor:not-allowed;pointer-events:none;}
+.toggle-switch input{position:absolute;opacity:0;width:0;height:0;}
+.toggle-thumb{
+  position:absolute;inset:0;
+  background:#d1d5db;border-radius:100px;
+  transition:background 0.2s;
+}
+.toggle-thumb::after{
+  content:'';position:absolute;
+  top:3px;left:3px;
+  width:18px;height:18px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.18);
+  transition:transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-thumb{background:var(--accent);}
+.toggle-switch input:checked + .toggle-thumb::after{transform:translateX(20px);}
+
 /* ── RESPONSIVE ── */
 @media (max-width:900px){
   #sidebar{width:64px;}

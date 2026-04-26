@@ -25,6 +25,8 @@
     fetchEvents,
     fetchEvent,
     fetchDomains,
+    fetchSettings,
+    updateSetting,
     submitContribution,
     trackView,
     trackSearch,
@@ -114,6 +116,25 @@
       .single();
     if (error) throw error;
     return data;
+  }
+
+  // ── CONFIGURAÇÕES ─────────────────────────────────────────
+  async function fetchSettings() {
+    if (!db) return {};
+    const { data, error } = await db.from('settings').select('key, value');
+    if (error || !data) return {};
+    const out = {};
+    data.forEach(({ key, value }) => { out[key] = value; });
+    return out;
+  }
+
+  async function updateSetting(key, value) {
+    if (!db) throw new Error('Supabase não configurado');
+    const { error } = await db.from('settings').upsert(
+      { key, value, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    if (error) throw error;
   }
 
   // ── ANALYTICS ─────────────────────────────────────────────

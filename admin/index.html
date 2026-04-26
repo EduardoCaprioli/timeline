@@ -47,6 +47,9 @@
         <a class="nav-item" data-page="domains">
           Domínios
         </a>
+        <a class="nav-item" data-page="media">
+          Mídia IA
+        </a>
 
         <div class="nav-section">Análise</div>
         <a class="nav-item" data-page="analytics">
@@ -293,6 +296,82 @@
             <thead><tr><th>Evento</th><th>Visualizações</th></tr></thead>
             <tbody id="top-events-tbody"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- MÍDIA IA -->
+      <div id="page-media" class="page">
+        <div class="page-header">
+          <div>
+            <h1>Mídia IA</h1>
+            <p>Geração automática de imagens e vídeos para eventos sem mídia própria</p>
+          </div>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:28px">
+          <div class="stat-card"><div class="stat-val" id="stat-media-no-img">—</div><div class="stat-label">Eventos sem imagem</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-media-ai">—</div><div class="stat-label">Imagens geradas por IA</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-media-total">—</div><div class="stat-label">Total de eventos</div></div>
+        </div>
+
+        <!-- Imagens por IA -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div>
+              <h2>Imagens por IA</h2>
+              <p>Gera automaticamente uma imagem ilustrativa para eventos sem foto usando Pollinations.ai</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-ai-images" />
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="settings-cards">
+            <div class="settings-card">
+              <div class="scard-head">
+                <span class="scard-name">Pollinations.ai</span>
+                <span class="badge b-free">Gratuito</span>
+              </div>
+              <p class="scard-desc">API pública sem chave necessária. Modelo Flux de alta qualidade. Resultado em 2–4 segundos. Imagens ficam em cache por sessão no navegador.</p>
+              <div class="form-group" style="margin-top:14px">
+                <label>Modelo de imagem</label>
+                <select id="ai-images-model">
+                  <option value="flux">Flux — padrão, boa qualidade</option>
+                  <option value="flux-realism">Flux Realism — mais fotorrealista</option>
+                  <option value="turbo">Turbo — mais rápido, menor qualidade</option>
+                </select>
+              </div>
+              <p class="scard-footer"><a href="https://pollinations.ai" target="_blank" rel="noopener">pollinations.ai</a></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vídeos por IA -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div>
+              <h2>Vídeos por IA <span class="badge b-soon">Em breve</span></h2>
+              <p>Clipes curtos em loop gerados por evento. Nenhum provedor gratuito e confiável disponível hoje.</p>
+            </div>
+            <label class="toggle-switch disabled">
+              <input type="checkbox" id="toggle-ai-video" disabled />
+              <span class="toggle-thumb"></span>
+            </label>
+          </div>
+          <div class="settings-cards">
+            <div class="settings-card disabled">
+              <div class="scard-head"><span class="scard-name">Kling AI</span><span class="badge b-soon">Em breve</span></div>
+              <p class="scard-desc">Vídeos de até 5s a partir de prompt. API em beta aberto da Kuaishou, com plano gratuito de cotas diárias.</p>
+            </div>
+            <div class="settings-card disabled">
+              <div class="scard-head"><span class="scard-name">Runway Gen-3</span><span class="badge b-soon">Pago</span></div>
+              <p class="scard-desc">API estável e de alta qualidade. Plano gratuito muito limitado, inviável para uso em produção com volume.</p>
+            </div>
+            <div class="settings-card disabled">
+              <div class="scard-head"><span class="scard-name">Wan 2.1 (Alibaba)</span><span class="badge b-soon">Open source</span></div>
+              <p class="scard-desc">Modelo open source de alta qualidade. Requer GPU própria ou créditos de computação em Hugging Face.</p>
+            </div>
+          </div>
         </div>
       </div>
 
