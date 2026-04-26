@@ -44,6 +44,9 @@
         <a class="nav-item" data-page="new-event">
           Novo evento
         </a>
+        <a class="nav-item" data-page="domains">
+          Domínios
+        </a>
 
         <div class="nav-section">Análise</div>
         <a class="nav-item" data-page="analytics">
@@ -246,6 +249,36 @@
         </form>
       </div>
 
+      <!-- DOMÍNIOS -->
+      <div id="page-domains" class="page">
+        <div class="page-header">
+          <div>
+            <h1>Domínios</h1>
+            <p id="domains-subtitle">Categorias de eventos — substituem as trilhas fixas</p>
+          </div>
+          <div class="header-actions">
+            <button id="btn-new-domain" class="btn-primary">+ Novo domínio</button>
+          </div>
+        </div>
+        <div class="table-card">
+          <table id="domains-table">
+            <thead>
+              <tr>
+                <th>Cor</th>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Domínio pai</th>
+                <th>Ordem</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="domains-tbody">
+              <tr><td colspan="6" class="empty-state">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ANALYTICS -->
       <div id="page-analytics" class="page">
         <div class="page-header"><h1>Acessos</h1></div>
@@ -291,6 +324,50 @@
           <button id="btn-reject" class="btn-reject">Rejeitar</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL: domínio -->
+  <div id="domain-modal" class="modal">
+    <div class="modal-bg"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="domain-close">×</button>
+      <h2 id="domain-modal-title">Novo domínio</h2>
+      <form id="domain-form" class="form-card" style="box-shadow:none;padding:0;margin-top:20px">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID único *</label>
+            <input type="text" name="id" required placeholder="ciencia" pattern="[a-z0-9-]+" />
+            <small>Slug: letras minúsculas e hifens. Permanente após criação.</small>
+          </div>
+          <div class="form-group">
+            <label>Nome *</label>
+            <input type="text" name="name" required placeholder="Ciência & Matemática" />
+          </div>
+          <div class="form-group">
+            <label>Cor</label>
+            <input type="color" name="color" value="#5cc8b8" />
+          </div>
+          <div class="form-group">
+            <label>Domínio pai</label>
+            <select name="parent_id" id="domain-parent-select">
+              <option value="">Nenhum (domínio raiz)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ordem de exibição</label>
+            <input type="number" name="sort_order" value="0" />
+          </div>
+          <div class="form-group full">
+            <label>Descrição</label>
+            <textarea name="description" rows="2" placeholder="Breve descrição deste domínio..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-ghost" id="domain-cancel">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar domínio</button>
+        </div>
+      </form>
     </div>
   </div>
 

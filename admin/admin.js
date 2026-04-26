@@ -21,6 +21,7 @@
     currentPage: 'contributions',
     contributions: [],
     events: [],
+    domains: [],
     reviewing: null,
   };
 
@@ -109,6 +110,7 @@
       events: loadEventsList,
       analytics: loadAnalytics,
       searches: loadSearches,
+      domains: loadDomains,
     };
     if (loaders[page]) loaders[page]();
   }
@@ -440,6 +442,121 @@
 
     $('contributions-subtitle').textContent =
       (pend.count || 0) + ' pendentes · ' + (appr.count || 0) + ' aprovadas · ' + (rej.count || 0) + ' rejeitadas';
+  }
+
+  // ── DOMÍNIOS ──────────────────────────────────────────────
+  async function loadDomains() {
+    const { data, error } = await db.from('domains').select('*').order('sort_order', { ascending: true });
+    if (error) { toast('Erro ao carregar domínios: ' + error.message, 'error'); return; }
+    state.domains = data || [];
+    renderDomains(state.domains);
+    $('domains-subtitle').textContent = state.domains.length + ' domínios cadastrados';
+  }
+
+  function renderDomains(list) {
+    const tbody = $('domains-tbody');
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Nenhum domínio. Execute a migração SQL e clique em Atualizar.</td></tr>';
+      return;
+    }
+    const nameMap = {};
+    list.forEach((d) => { nameMap[d.id] = d.name; });
+    tbody.innerHTML = list.map((d) => `
+      <tr>
+        <td><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:${escapeHtml(d.color)};vertical-align:middle"></span></td>
+        <td><code>${escapeHtml(d.id)}</code></td>
+        <td>
+          <div class="td-title">${escapeHtml(d.name)}</div>
+          ${d.description ? `<div class="td-meta">${escapeHtml(truncate(d.description, 60))}</div>` : ''}
+        </td>
+        <td>${d.parent_id ? `<span class="td-meta">${escapeHtml(nameMap[d.parent_id] || d.parent_id)}</span>` : '<span class="td-meta">—</span>'}</td>
+        <td>${d.sort_order}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn-sm" data-action="edit-domain" data-id="${escapeHtml(d.id)}">Editar</button>
+            <button class="btn-sm btn-reject" data-action="delete-domain" data-id="${escapeHtml(d.id)}">Excluir</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  $('domains-tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'edit-domain') {
+      const d = state.domains.find((x) => x.id === btn.dataset.id);
+      if (d) openDomainModal(d);
+    } else if (btn.dataset.action === 'delete-domain') {
+      deleteDomainById(btn.dataset.id);
+    }
+  });
+
+  $('btn-new-domain').addEventListener('click', () => openDomainModal(null));
+  $('domain-close').addEventListener('click', () => $('domain-modal').classList.remove('show'));
+  $('domain-cancel').addEventListener('click', () => $('domain-modal').classList.remove('show'));
+
+  function openDomainModal(domain) {
+    const form = $('domain-form');
+    form.reset();
+    delete form.dataset.editId;
+    const isEdit = !!domain;
+    $('domain-modal-title').textContent = isEdit ? 'Editar domínio' : 'Novo domínio';
+
+    const sel = $('domain-parent-select');
+    sel.innerHTML = '<option value="">Nenhum (domínio raiz)</option>';
+    state.domains.forEach((d) => {
+      if (isEdit && d.id === domain.id) return;
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = d.name;
+      if (isEdit && domain.parent_id === d.id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    const idInput = form.querySelector('[name=id]');
+    idInput.disabled = isEdit;
+
+    if (isEdit) {
+      idInput.value = domain.id;
+      form.querySelector('[name=name]').value = domain.name || '';
+      form.querySelector('[name=color]').value = domain.color || '#5cc8b8';
+      form.querySelector('[name=sort_order]').value = domain.sort_order ?? 0;
+      form.querySelector('[name=description]').value = domain.description || '';
+      form.dataset.editId = domain.id;
+    }
+    $('domain-modal').classList.add('show');
+  }
+
+  $('domain-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const editId = e.target.dataset.editId;
+    const payload = {
+      name:        fd.get('name'),
+      color:       fd.get('color'),
+      parent_id:   fd.get('parent_id') || null,
+      sort_order:  parseInt(fd.get('sort_order'), 10) || 0,
+      description: fd.get('description') || null,
+    };
+    if (!editId) payload.id = fd.get('id');
+
+    const { error } = editId
+      ? await db.from('domains').update(payload).eq('id', editId)
+      : await db.from('domains').insert(payload);
+
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    toast(editId ? 'Domínio atualizado' : 'Domínio criado', 'success');
+    $('domain-modal').classList.remove('show');
+    loadDomains();
+  });
+
+  async function deleteDomainById(id) {
+    const domain = state.domains.find((d) => d.id === id);
+    if (!confirm('Excluir domínio "' + (domain ? domain.name : id) + '"?\n\nEventos que usam este domínio não serão alterados, mas perderão a referência de cor/nome.')) return;
+    const { error } = await db.from('domains').delete().eq('id', id);
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    toast('Domínio excluído', 'info');
+    loadDomains();
   }
 
   // ── INIT ──────────────────────────────────────────────────

@@ -24,6 +24,7 @@
     client: db,
     fetchEvents,
     fetchEvent,
+    fetchDomains,
     submitContribution,
     trackView,
     trackSearch,
@@ -38,6 +39,7 @@
       d: row.date_display,
       era: row.era,
       track: row.track,
+      domainIds: row.domain_ids || (row.track ? [row.track] : []),
       t: row.title,
       x: row.description,
       tg: row.tags || [],
@@ -48,6 +50,9 @@
       imgType: row.img_type,
       quote: row.quote_text ? { text: row.quote_text, by: row.quote_by } : null,
       video: row.video_id || null,
+      yearEnd: row.year_end || null,
+      datePrecision: row.date_precision || 'year',
+      region: row.region || null,
     };
   }
 
@@ -73,6 +78,18 @@
       .single();
     if (error) throw error;
     return dbRowToEvent(data);
+  }
+
+  // ── DOMÍNIOS ──────────────────────────────────────────────
+  async function fetchDomains() {
+    if (!db) throw new Error('Supabase não configurado');
+    const { data, error } = await db
+      .from('domains')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return data || [];
   }
 
   // ── CONTRIBUIÇÕES ─────────────────────────────────────────
