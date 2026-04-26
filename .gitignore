@@ -4,6 +4,7 @@
 node_modules/
 .DS_Store
 *.log
-config.js
+# config.js — anon key é pública por design, mas removido do gitignore para Vercel
+# config.js
 .vercel
 inspirations/
