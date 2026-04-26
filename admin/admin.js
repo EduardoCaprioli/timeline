@@ -117,13 +117,25 @@
   async function loadContributions() {
     const status = $('filter-status').value;
     let query = db.from('contributions')
-      .select('*, events(title, date_display, year)')
+      .select('*')
       .order('created_at', { ascending: false });
     if (status) query = query.eq('status', status);
 
     const { data, error } = await query;
     if (error) { toast('Erro: ' + error.message, 'error'); return; }
-    state.contributions = data || [];
+
+    const contributions = data || [];
+    const eventIds = [...new Set(contributions.map((c) => c.event_id).filter(Boolean))];
+    if (eventIds.length) {
+      const { data: evData } = await db.from('events')
+        .select('id, title, date_display, year')
+        .in('id', eventIds);
+      const evMap = {};
+      (evData || []).forEach((ev) => { evMap[ev.id] = ev; });
+      contributions.forEach((c) => { c.events = evMap[c.event_id] || null; });
+    }
+
+    state.contributions = contributions;
     renderContributions(state.contributions);
     updateStats();
   }
