@@ -774,7 +774,7 @@ Regras:
   // AI PROVIDERS
   // ══════════════════════════════════════════════════════════
   const PROVIDERS = [
-    { id: 'gemini', name: 'Gemini Flash', vendor: 'Google', model: 'gemini-2.0-flash', free: true,
+    { id: 'gemini', name: 'Gemini 1.5 Flash', vendor: 'Google', model: 'gemini-1.5-flash', free: true,
       placeholder: 'AIza...', keyUrl: 'https://aistudio.google.com/apikey' },
     { id: 'groq', name: 'Groq', vendor: 'Meta · Groq', model: 'llama-3.3-70b-versatile', free: true,
       placeholder: 'gsk_...', keyUrl: 'https://console.groq.com/keys' },
@@ -916,6 +916,13 @@ Regras:
     return ctx;
   }
 
+  function httpErrorMsg(provider, status) {
+    if (status === 429) return provider + ': limite de requisições atingido — aguarde alguns segundos e tente novamente.';
+    if (status === 401) return provider + ': chave inválida — verifique a chave no modal de provedor.';
+    if (status === 403) return provider + ': acesso negado — verifique as permissões da chave.';
+    return provider + ': erro ' + status + ' — verifique a chave e tente novamente.';
+  }
+
   // ── Provider dispatch ────────────────────────────────────
   async function streamFromProvider({ provider, sys, messages, onDelta, signal }) {
     const key = getProviderKey(provider.id);
@@ -935,7 +942,7 @@ Regras:
     const body = { contents, generationConfig: { maxOutputTokens: 1200 } };
     if (sys) body.system_instruction = { parts: [{ text: sys }] };
     const resp = await fetch(url, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!resp.ok) { const t = await resp.text(); throw new Error('Gemini ' + resp.status + ': ' + t.slice(0, 180)); }
+    if (!resp.ok) { throw new Error(httpErrorMsg('Gemini', resp.status)); }
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
@@ -959,7 +966,7 @@ Regras:
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify({ model, max_tokens: 1200, stream: true, messages: [{ role: 'system', content: sys }, ...messages] }),
     });
-    if (!resp.ok) { const t = await resp.text(); throw new Error('API ' + resp.status + ': ' + t.slice(0, 180)); }
+    if (!resp.ok) { throw new Error(httpErrorMsg(provider.id === 'groq' ? 'Groq' : 'OpenAI', resp.status)); }
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
@@ -987,7 +994,7 @@ Regras:
         const b = { contents, generationConfig: { maxOutputTokens: 800 } };
         if (sys) b.system_instruction = { parts: [{ text: sys }] };
         const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
-        if (!resp.ok) throw new Error('Gemini ' + resp.status);
+        if (!resp.ok) throw new Error(httpErrorMsg('Gemini', resp.status));
         const data = await resp.json();
         return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       }
@@ -999,7 +1006,7 @@ Regras:
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
           body: JSON.stringify({ model: provider.model, max_tokens: 800, messages: [{ role: 'system', content: sys }, ...messages] }),
         });
-        if (!resp.ok) throw new Error('API ' + resp.status);
+        if (!resp.ok) throw new Error(httpErrorMsg(provider.id === 'groq' ? 'Groq' : 'OpenAI', resp.status));
         const data = await resp.json();
         return data?.choices?.[0]?.message?.content || '';
       }
@@ -1009,7 +1016,7 @@ Regras:
           headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
           body: JSON.stringify({ model: provider.model, max_tokens: 800, system: sys, messages }),
         });
-        if (!resp.ok) throw new Error('API ' + resp.status);
+        if (!resp.ok) throw new Error(httpErrorMsg('Claude', resp.status));
         const data = await resp.json();
         return (data.content && data.content[0] && data.content[0].text) || '';
       }
@@ -1029,10 +1036,7 @@ Regras:
       },
       body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1200, system: sys, messages, stream: true }),
     });
-    if (!resp.ok) {
-      const txt = await resp.text();
-      throw new Error('API ' + resp.status + ': ' + txt.slice(0, 180));
-    }
+    if (!resp.ok) { throw new Error(httpErrorMsg('Claude', resp.status)); }
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
