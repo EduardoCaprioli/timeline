@@ -170,9 +170,16 @@
     const hero = $('hero-img');
     hero.classList.remove('loaded', 'kb');
 
+    // Quando IA ativa: gera imagem para todos os eventos (substitui img_url)
+    if (state.settings.ai_images_enabled) {
+      $('img-loading').classList.remove('show');
+      generateHeroImage(ev);
+      return;
+    }
+
+    // IA desativada: usa img_url existente ou gradiente
     if (!ev.img) {
       $('img-loading').classList.remove('show');
-      if (state.settings.ai_images_enabled) { generateHeroImage(ev); return; }
       showHeroGradient(ev);
       return;
     }
@@ -186,10 +193,7 @@
       requestAnimationFrame(() => hero.classList.add('kb'));
       preloadNearby();
     };
-    img.onerror = () => {
-      if (state.settings.ai_images_enabled) { generateHeroImage(ev); return; }
-      showHeroGradient(ev);
-    };
+    img.onerror = () => showHeroGradient(ev);
     img.src = ev.img;
 
     $('img-credit-text').textContent = ev.imgCredit || '';
