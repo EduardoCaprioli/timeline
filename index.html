@@ -132,9 +132,8 @@
       </div>
 
       <div id="ai-key-notice">
-        <span>Use sua chave Anthropic para IA real. </span>
-        <a href="#" id="ai-key-link">Configurar</a>
-        <span> · ou modo demo.</span>
+        <span id="notice-text">Configure um provedor de IA. </span>
+        <a href="#" id="ai-key-link">Selecionar →</a>
       </div>
     </div>
 
@@ -203,19 +202,15 @@
       </div>
     </div>
 
-    <!-- ════════ API KEY MODAL ════════ -->
-    <div id="key-modal" class="modal">
+    <!-- ════════ PROVIDER MODAL ════════ -->
+    <div id="provider-modal" class="modal">
       <div class="modal-bg"></div>
-      <div class="modal-content">
-        <button class="modal-close" data-close="key-modal">×</button>
-        <h3>Chave Anthropic</h3>
-        <p class="key-desc">Cole sua chave para habilitar o modo IA real. Fica armazenada apenas no seu navegador (<code>localStorage</code>). É usada somente em chamadas diretas à Anthropic.</p>
-        <input id="key-input" type="password" placeholder="sk-ant-..." />
-        <div class="key-actions">
-          <button id="key-save">Salvar</button>
-          <button id="key-clear" class="ghost">Remover</button>
-        </div>
-        <p class="key-mini">Sem chave? <a href="#" id="key-demo">usar modo demo →</a></p>
+      <div class="modal-content modal-wide">
+        <button class="modal-close" data-close="provider-modal">×</button>
+        <h3>Provedor de IA</h3>
+        <p class="provider-sub">Escolha um provedor e cole sua chave. Gemini e Groq têm camada gratuita.</p>
+        <div id="provider-list"></div>
+        <p class="provider-demo-note">Sem chave? <a href="#" id="btn-use-demo">Usar modo demo →</a></p>
       </div>
     </div>
 

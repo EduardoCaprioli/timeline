@@ -674,17 +674,18 @@
       return;
     }
 
-    // Não encontrou localmente — tentar gerar com IA se houver chave
-    const key = getKey();
-    if (!key) {
+    // Não encontrou localmente — tentar gerar com IA se houver provedor
+    const pid = getActiveProvider();
+    const prov = PROVIDERS.find((p) => p.id === pid);
+    if (!prov || !getProviderKey(pid)) {
       enterTimeline();
-      toast('Sem resultado para "' + query + '". Configure a IA para gerar dinamicamente.', 3500);
+      toast('Sem resultado para "' + query + '". Configure um provedor de IA para gerar dinamicamente.', 3500);
       return;
     }
 
     toast('Buscando com IA...', 4000);
     try {
-      const generated = await aiGenerateEvent(query, key);
+      const generated = await aiGenerateEvent(query, prov);
       if (!generated || generated.error) {
         enterTimeline();
         toast('Nenhum evento histórico encontrado para esta busca.', 3000);
@@ -705,7 +706,7 @@
             valueAfter: generated.t,
             fullEventJson: aiEventToDbRow(generated),
             source: 'ai',
-            aiModel: MODEL,
+            aiModel: prov.model,
           });
           window.TL_DB.trackSearch(q, 1, true);
         } catch (e) { /* silencioso */ }
@@ -719,8 +720,7 @@
     }
   }
 
-  // Pede ao Claude para criar um evento histórico real em formato JSON
-  async function aiGenerateEvent(query, key) {
+  async function aiGenerateEvent(query, prov) {
     const prompt = `O usuário buscou: "${query}" em uma timeline de história da tecnologia.
 
 Gere um evento histórico REAL e VERIFICÁVEL relacionado a esta busca, no formato JSON abaixo. Responda APENAS com o JSON, sem qualquer texto antes ou depois.
@@ -749,23 +749,7 @@ Regras:
 - Se não houver evento histórico real relacionado a "${query}", retorne: {"error":"sem_evento_real"}
 - Use uma URL real de imagem do Unsplash (formato images.unsplash.com/photo-XXXXXX). Se não souber, omita o campo "img".`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 800,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    if (!resp.ok) throw new Error('API ' + resp.status);
-    const data = await resp.json();
-    const text = (data.content && data.content[0] && data.content[0].text) || '';
+    const text = await callProviderOnce({ provider: prov, sys: '', messages: [{ role: 'user', content: prompt }] });
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) throw new Error('resposta sem JSON');
     return JSON.parse(m[0]);
@@ -787,14 +771,33 @@ Regras:
   }
 
   // ══════════════════════════════════════════════════════════
-  // AI PANEL (Claude API + demo)
+  // AI PROVIDERS
   // ══════════════════════════════════════════════════════════
-  const API_KEY_LS = 'tl_anthropic_key';
-  const MODEL = 'claude-sonnet-4-6';
+  const PROVIDERS = [
+    { id: 'gemini', name: 'Gemini Flash', vendor: 'Google', model: 'gemini-2.0-flash', free: true,
+      placeholder: 'AIza...', keyUrl: 'https://aistudio.google.com/apikey' },
+    { id: 'groq', name: 'Groq', vendor: 'Meta · Groq', model: 'llama-3.3-70b-versatile', free: true,
+      placeholder: 'gsk_...', keyUrl: 'https://console.groq.com/keys' },
+    { id: 'claude', name: 'Claude Sonnet', vendor: 'Anthropic', model: 'claude-sonnet-4-6', free: false,
+      placeholder: 'sk-ant-...', keyUrl: 'https://console.anthropic.com/' },
+    { id: 'openai', name: 'GPT-4o mini', vendor: 'OpenAI', model: 'gpt-4o-mini', free: false,
+      placeholder: 'sk-...', keyUrl: 'https://platform.openai.com/api-keys' },
+  ];
+  const PROVIDER_LS = 'tl_provider';
+  const KEY_LS = (id) => 'tl_key_' + id;
 
-  function getKey() { return localStorage.getItem(API_KEY_LS) || ''; }
-  function setKey(k) { localStorage.setItem(API_KEY_LS, k); }
-  function clearKey() { localStorage.removeItem(API_KEY_LS); }
+  function getActiveProvider() { return localStorage.getItem(PROVIDER_LS) || ''; }
+  function setActiveProvider(id) { localStorage.setItem(PROVIDER_LS, id); }
+  function getProviderKey(id) { return localStorage.getItem(KEY_LS(id)) || ''; }
+  function setProviderKey(id, key) { localStorage.setItem(KEY_LS(id), key); }
+
+  function migrateOldKey() {
+    const old = localStorage.getItem('tl_anthropic_key');
+    if (old && !getProviderKey('claude')) {
+      setProviderKey('claude', old);
+      if (!getActiveProvider()) setActiveProvider('claude');
+    }
+  }
 
   function openAI(mode) {
     state.aiMode = mode || 'deep';
@@ -865,13 +868,14 @@ Regras:
     const sys = buildSystemPrompt();
     const userPrompt = buildUserPrompt(mode, ev);
 
-    const key = getKey();
+    const activeProv = PROVIDERS.find((p) => p.id === getActiveProvider());
+    const hasKey = activeProv && getProviderKey(activeProv.id);
     try {
-      if (key) {
-        await streamFromAnthropic({
-          key, sys, messages: [{ role: 'user', content: userPrompt }],
+      if (activeProv && hasKey) {
+        await streamFromProvider({
+          provider: activeProv, sys, messages: [{ role: 'user', content: userPrompt }],
           onDelta: (t) => { appendText(target, t); body.scrollTop = body.scrollHeight; },
-          signal: abort.signal
+          signal: abort.signal,
         });
       } else {
         await demoStream(mode, ev, (t) => { appendText(target, t); body.scrollTop = body.scrollHeight; }, abort.signal);
@@ -879,7 +883,7 @@ Regras:
       target.classList.remove('typing');
     } catch (err) {
       if (err.name !== 'AbortError') {
-        appendText(target, `\n\n[erro: ${err.message}. Configure uma chave ou use modo demo.]`);
+        appendText(target, `\n\n[erro: ${err.message}. Configure um provedor de IA ou use modo demo.]`);
         target.classList.remove('typing');
       }
     }
@@ -912,6 +916,107 @@ Regras:
     return ctx;
   }
 
+  // ── Provider dispatch ────────────────────────────────────
+  async function streamFromProvider({ provider, sys, messages, onDelta, signal }) {
+    const key = getProviderKey(provider.id);
+    if (!key) throw new Error('Chave não configurada para ' + provider.name);
+    switch (provider.id) {
+      case 'gemini':  return streamFromGemini({ key, model: provider.model, sys, messages, onDelta, signal });
+      case 'groq':    return streamFromOpenAICompat({ endpoint: 'https://api.groq.com/openai/v1/chat/completions', key, model: provider.model, sys, messages, onDelta, signal });
+      case 'openai':  return streamFromOpenAICompat({ endpoint: 'https://api.openai.com/v1/chat/completions', key, model: provider.model, sys, messages, onDelta, signal });
+      case 'claude':  return streamFromAnthropic({ key, sys, messages, onDelta, signal });
+      default: throw new Error('Provedor desconhecido: ' + provider.id);
+    }
+  }
+
+  async function streamFromGemini({ key, model, sys, messages, onDelta, signal }) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${encodeURIComponent(key)}&alt=sse`;
+    const contents = messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+    const body = { contents, generationConfig: { maxOutputTokens: 1200 } };
+    if (sys) body.system_instruction = { parts: [{ text: sys }] };
+    const resp = await fetch(url, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!resp.ok) { const t = await resp.text(); throw new Error('Gemini ' + resp.status + ': ' + t.slice(0, 180)); }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try { const d = JSON.parse(payload); const t = d?.candidates?.[0]?.content?.parts?.[0]?.text; if (t) onDelta(t); } catch (e) {}
+      }
+    }
+  }
+
+  async function streamFromOpenAICompat({ endpoint, key, model, sys, messages, onDelta, signal }) {
+    const resp = await fetch(endpoint, {
+      method: 'POST', signal,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({ model, max_tokens: 1200, stream: true, messages: [{ role: 'system', content: sys }, ...messages] }),
+    });
+    if (!resp.ok) { const t = await resp.text(); throw new Error('API ' + resp.status + ': ' + t.slice(0, 180)); }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        try { const d = JSON.parse(payload); const t = d?.choices?.[0]?.delta?.content; if (t) onDelta(t); } catch (e) {}
+      }
+    }
+  }
+
+  async function callProviderOnce({ provider, sys, messages }) {
+    const key = getProviderKey(provider.id);
+    if (!key) throw new Error('Chave não configurada para ' + provider.name);
+    switch (provider.id) {
+      case 'gemini': {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent?key=${encodeURIComponent(key)}`;
+        const contents = messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+        const b = { contents, generationConfig: { maxOutputTokens: 800 } };
+        if (sys) b.system_instruction = { parts: [{ text: sys }] };
+        const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+        if (!resp.ok) throw new Error('Gemini ' + resp.status);
+        const data = await resp.json();
+        return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
+      case 'groq':
+      case 'openai': {
+        const ep = provider.id === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
+        const resp = await fetch(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify({ model: provider.model, max_tokens: 800, messages: [{ role: 'system', content: sys }, ...messages] }),
+        });
+        if (!resp.ok) throw new Error('API ' + resp.status);
+        const data = await resp.json();
+        return data?.choices?.[0]?.message?.content || '';
+      }
+      case 'claude': {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({ model: provider.model, max_tokens: 800, system: sys, messages }),
+        });
+        if (!resp.ok) throw new Error('API ' + resp.status);
+        const data = await resp.json();
+        return (data.content && data.content[0] && data.content[0].text) || '';
+      }
+    }
+    return '';
+  }
+
   async function streamFromAnthropic({ key, sys, messages, onDelta, signal }) {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -922,7 +1027,7 @@ Regras:
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1200, system: sys, messages, stream: true }),
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1200, system: sys, messages, stream: true }),
     });
     if (!resp.ok) {
       const txt = await resp.text();
@@ -962,10 +1067,10 @@ Regras:
     const parents = (ev.parents || []).map(byId).filter(Boolean);
     const parentsStr = parents.map((p) => p.t).join(', ');
     if (mode === 'deep') {
-      return `Em **${ev.d}**, ${ev.t.toLowerCase()}. ${ev.x}\n\nEste momento não surgiu do vazio — foi possibilitado por **${parentsStr || 'décadas de trabalho coletivo'}**. Quem viveu esse período raramente percebeu que estava presenciando algo tão definitivo. A distância temporal é o que torna óbvio o que na época era apenas mais uma notícia.\n\nO impacto duradouro: cada tecnologia que usamos hoje carrega, de alguma forma, o DNA desse acontecimento. Sua influência continua ativa em dispositivos, protocolos e rotinas que damos como naturais.\n\n**[Modo demo · configure uma chave Anthropic para resposta real do Claude.]**`;
+      return `Em **${ev.d}**, ${ev.t.toLowerCase()}. ${ev.x}\n\nEste momento não surgiu do vazio — foi possibilitado por **${parentsStr || 'décadas de trabalho coletivo'}**. Quem viveu esse período raramente percebeu que estava presenciando algo tão definitivo. A distância temporal é o que torna óbvio o que na época era apenas mais uma notícia.\n\nO impacto duradouro: cada tecnologia que usamos hoje carrega, de alguma forma, o DNA desse acontecimento. Sua influência continua ativa em dispositivos, protocolos e rotinas que damos como naturais.\n\n**[Modo demo · configure um provedor de IA para respostas reais.]**`;
     }
     if (mode === 'counterfactual') {
-      return `Sem **${ev.t.toLowerCase()}**, o caminho da tecnologia teria sido outro. ${parentsStr ? `As bases já estavam lá — ${parentsStr} —, ` : ''}mas o momento crítico teria chegado mais tarde, talvez em outro país, com outros protagonistas.\n\nA cultura digital como conhecemos seria atrasada em uma década ou se moldaria em torno de outros centros de poder. Algumas empresas gigantes que dependem deste marco simplesmente **não existiriam**.\n\nO mais provável: outra tecnologia preencheria o vácuo, mas com prioridades, valores e limitações diferentes. A internet que você está usando agora seria estranha para seus olhos.\n\n**[Modo demo · configure sua chave para um cenário contrafactual detalhado.]**`;
+      return `Sem **${ev.t.toLowerCase()}**, o caminho da tecnologia teria sido outro. ${parentsStr ? `As bases já estavam lá — ${parentsStr} —, ` : ''}mas o momento crítico teria chegado mais tarde, talvez em outro país, com outros protagonistas.\n\nA cultura digital como conhecemos seria atrasada em uma década ou se moldaria em torno de outros centros de poder. Algumas empresas gigantes que dependem deste marco simplesmente **não existiriam**.\n\nO mais provável: outra tecnologia preencheria o vácuo, mas com prioridades, valores e limitações diferentes. A internet que você está usando agora seria estranha para seus olhos.\n\n**[Modo demo · configure um provedor de IA para um cenário contrafactual detalhado.]**`;
     }
     return '[Modo demo]';
   }
@@ -1048,13 +1153,14 @@ Regras:
     ];
 
     try {
-      const key = getKey();
-      if (key) {
-        await streamFromAnthropic({ key, sys, messages: msgs,
+      const chatProv = PROVIDERS.find((p) => p.id === getActiveProvider());
+      const chatKey = chatProv && getProviderKey(chatProv.id);
+      if (chatProv && chatKey) {
+        await streamFromProvider({ provider: chatProv, sys, messages: msgs,
           onDelta: (t) => { appendText(ai, t); body.scrollTop = body.scrollHeight; },
           signal: abort.signal });
       } else {
-        const reply = `Sobre "${text}" em relação a **${ev.t}**: uma resposta profunda e contextualizada exige a IA real. Configure sua chave Anthropic no botão acima e eu poderei investigar qualquer ângulo deste momento histórico.`;
+        const reply = `Sobre "${text}" em relação a **${ev.t}**: uma resposta profunda e contextualizada exige um provedor de IA. Configure um provedor no painel acima para investigar qualquer ângulo deste momento histórico.`;
         for (let i = 0; i < reply.length; i++) {
           if (abort.signal.aborted) throw new DOMException('abort', 'AbortError');
           appendText(ai, reply[i]);
@@ -1272,9 +1378,10 @@ Regras:
     };
 
     try {
-      const key = getKey();
-      if (key) {
-        await streamFromAnthropic({ key, sys, messages: [{ role: 'user', content: ctx }], onDelta, signal: abort.signal });
+      const storyProv = PROVIDERS.find((p) => p.id === getActiveProvider());
+      const storyKey = storyProv && getProviderKey(storyProv.id);
+      if (storyProv && storyKey) {
+        await streamFromProvider({ provider: storyProv, sys, messages: [{ role: 'user', content: ctx }], onDelta, signal: abort.signal });
       } else {
         const fallback = buildStoryDemo(picks);
         for (let i = 0; i < fallback.length; i++) {
@@ -1295,7 +1402,7 @@ Regras:
       const prefix = i === 0 ? 'A história começa em' : (i === picks.length - 1 ? 'E finalmente, em' : 'Anos depois, em');
       return `${prefix} **${p.d}**. ${p.t}. ${p.x}`;
     });
-    return parts.join('\n\n') + '\n\n**[Modo demo — uma narrativa real do Claude conecta esses momentos com muito mais densidade. Configure sua chave Anthropic para experimentar.]**';
+    return parts.join('\n\n') + '\n\n**[Modo demo — configure um provedor de IA para uma narrativa real com muito mais densidade.]**';
   }
 
   function closeStory() {
@@ -1415,6 +1522,57 @@ Regras:
   }
 
   // ══════════════════════════════════════════════════════════
+  // PROVIDER MODAL
+  // ══════════════════════════════════════════════════════════
+  function openProviderModal() {
+    renderProviderCards();
+    openModal('provider-modal');
+  }
+
+  function renderProviderCards() {
+    const list = $('provider-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const currentId = getActiveProvider();
+    PROVIDERS.forEach((prov) => {
+      const savedKey = getProviderKey(prov.id);
+      const card = document.createElement('div');
+      card.className = 'provider-card' + (prov.id === currentId ? ' active' : '');
+      card.dataset.id = prov.id;
+      card.innerHTML = `
+        <div class="pcard-head">
+          <div class="pcard-name">${escapeHtml(prov.name)}${prov.free ? ' <span class="pcard-badge free">Grátis</span>' : ''}</div>
+          <div class="pcard-vendor">${escapeHtml(prov.vendor)} · ${escapeHtml(prov.model)}</div>
+        </div>
+        <input class="pcard-key" type="password" placeholder="${escapeHtml(prov.placeholder)}" value="${escapeHtml(savedKey)}" autocomplete="off" spellcheck="false" />
+        <div class="pcard-foot">
+          <a class="pcard-getkey" href="${escapeHtml(prov.keyUrl)}" target="_blank" rel="noopener">Obter chave →</a>
+          <button class="pcard-use">Usar este</button>
+        </div>`;
+      card.querySelector('.pcard-use').addEventListener('click', () => {
+        const k = card.querySelector('.pcard-key').value.trim();
+        if (k) setProviderKey(prov.id, k);
+        setActiveProvider(prov.id);
+        list.querySelectorAll('.provider-card').forEach((c) => c.classList.toggle('active', c.dataset.id === prov.id));
+        updateKeyNotice();
+        toast('Provedor: ' + prov.name);
+        closeModal('provider-modal');
+      });
+      list.appendChild(card);
+    });
+  }
+
+  function updateKeyNotice() {
+    const pid = getActiveProvider();
+    const prov = PROVIDERS.find((p) => p.id === pid);
+    const hasKey = prov && getProviderKey(pid);
+    const noticeText = $('notice-text');
+    const keyLink = $('ai-key-link');
+    if (noticeText) noticeText.textContent = hasKey ? 'Provedor: ' + prov.name + '. ' : 'Configure um provedor de IA. ';
+    if (keyLink) keyLink.textContent = hasKey ? 'Trocar' : 'Selecionar →';
+  }
+
+  // ══════════════════════════════════════════════════════════
   // INIT
   // ══════════════════════════════════════════════════════════
   async function loadEventsFromBackend() {
@@ -1467,7 +1625,7 @@ Regras:
     // AI panel
     $('ai-close').addEventListener('click', closeAI);
     $$('.ai-tab').forEach((t) => t.addEventListener('click', () => openAI(t.dataset.mode)));
-    $('ai-key-link').addEventListener('click', (e) => { e.preventDefault(); $('key-input').value = getKey(); openModal('key-modal'); });
+    $('ai-key-link').addEventListener('click', (e) => { e.preventDefault(); openProviderModal(); });
     $('ai-send').addEventListener('click', () => {
       const t = $('ai-input').value.trim();
       if (!t) return;
@@ -1476,14 +1634,13 @@ Regras:
     });
     $('ai-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('ai-send').click(); });
 
-    // Key modal
-    $('key-save').addEventListener('click', () => {
-      const v = $('key-input').value.trim();
-      if (!v.startsWith('sk-ant-')) { toast('Formato esperado: sk-ant-...'); return; }
-      setKey(v); toast('Chave salva localmente'); closeModal('key-modal');
-    });
-    $('key-clear').addEventListener('click', () => { clearKey(); $('key-input').value = ''; toast('Chave removida'); });
-    $('key-demo').addEventListener('click', (e) => { e.preventDefault(); closeModal('key-modal'); toast('Modo demo ativo'); });
+    // Provider modal
+    const demoBtn = $('btn-use-demo');
+    if (demoBtn) demoBtn.addEventListener('click', (e) => { e.preventDefault(); closeModal('provider-modal'); toast('Modo demo ativo'); });
+
+    // Migrate old Anthropic key + init key notice
+    migrateOldKey();
+    updateKeyNotice();
 
     // Modal close handlers
     $$('.modal').forEach((m) => { m.querySelector('.modal-bg').addEventListener('click', () => m.classList.remove('show')); });

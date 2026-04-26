@@ -882,3 +882,68 @@ kbd{
   margin-top:14px;padding-top:12px;
   border-top:1px solid rgba(255,255,255,0.07);
 }
+
+/* ════════════════════════════════════════════════════════════
+   PROVIDER MODAL
+   ════════════════════════════════════════════════════════════ */
+.provider-sub{
+  font-size:13px;color:rgba(255,255,255,0.5);
+  margin:-4px 0 16px;
+}
+#provider-list{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+}
+@media(max-width:540px){#provider-list{grid-template-columns:1fr;}}
+.provider-card{
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:10px;padding:16px;
+  background:rgba(255,255,255,0.03);
+  transition:border-color 0.18s,background 0.18s;
+}
+.provider-card.active{
+  border-color:var(--accent);
+  background:rgba(92,200,184,0.06);
+}
+.pcard-head{margin-bottom:12px;}
+.pcard-name{
+  font-size:13px;font-weight:600;
+  color:rgba(255,255,255,0.9);
+  margin-bottom:3px;
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+}
+.pcard-badge{
+  font-size:10px;font-weight:500;
+  padding:2px 6px;border-radius:100px;
+}
+.pcard-badge.free{background:rgba(74,222,128,0.14);color:#4ade80;}
+.pcard-vendor{font-size:11px;color:rgba(255,255,255,0.32);}
+.pcard-key{
+  width:100%;padding:9px 12px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:7px;color:#fff;
+  font-size:12px;font-family:monospace;
+  outline:none;transition:border-color 0.18s;
+  margin-bottom:10px;
+}
+.pcard-key:focus{border-color:var(--accent);}
+.pcard-key::placeholder{color:rgba(255,255,255,0.22);font-family:'Sora',sans-serif;}
+.pcard-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pcard-getkey{
+  font-size:11px;color:rgba(255,255,255,0.38);
+  text-decoration:none;transition:color 0.15s;
+}
+.pcard-getkey:hover{color:var(--accent);}
+.pcard-use{
+  padding:6px 14px;background:var(--accent);color:#0a0a0a;
+  border:none;border-radius:6px;font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:opacity 0.15s;
+  flex-shrink:0;
+}
+.pcard-use:hover{opacity:0.88;}
+.provider-demo-note{
+  margin-top:16px;text-align:center;
+  font-size:12px;color:rgba(255,255,255,0.3);
+}
+.provider-demo-note a{color:rgba(255,255,255,0.5);text-decoration:none;}
+.provider-demo-note a:hover{color:#fff;}
