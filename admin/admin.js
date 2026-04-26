@@ -161,14 +161,14 @@
             <span>${escapeHtml(c.contributor_name || 'Anônimo')}</span>
           </div>
         </td>
-        <td><span class="badge ${c.source === 'ai' ? 'b-ai' : 'b-community'}">${c.source === 'ai' ? '✦ IA' : 'Comunidade'}</span></td>
+        <td><span class="badge ${c.source === 'ai' ? 'b-ai' : 'b-community'}">${c.source === 'ai' ? 'IA' : 'Comunidade'}</span></td>
         <td>${formatDate(c.created_at)}</td>
         <td>
           <div class="row-actions">
             <button class="btn-sm btn-view" data-action="review" data-id="${c.id}">Ver</button>
             ${c.status === 'pending' ? `
-              <button class="btn-sm btn-approve" data-action="approve" data-id="${c.id}">✓</button>
-              <button class="btn-sm btn-reject" data-action="reject" data-id="${c.id}">✗</button>
+              <button class="btn-sm btn-approve" data-action="approve" data-id="${c.id}">Aprovar</button>
+              <button class="btn-sm btn-reject" data-action="reject" data-id="${c.id}">Rejeitar</button>
             ` : `<span class="badge b-${c.status}">${statusLabel(c.status)}</span>`}
           </div>
         </td>
@@ -214,7 +214,7 @@
       ${c.value_after ? `<div class="review-diff"><strong>Depois:</strong><div class="diff-after">${escapeHtml(c.value_after)}</div></div>` : ''}
       ${fullJson}
       <div class="review-field"><strong>Autor:</strong> ${escapeHtml(c.contributor_name || 'Anônimo')} ${c.contributor_email ? '(' + escapeHtml(c.contributor_email) + ')' : ''}</div>
-      <div class="review-field"><strong>Origem:</strong> ${c.source === 'ai' ? '✦ Gerado por IA (' + escapeHtml(c.ai_model || '?') + ')' : 'Comunidade'}</div>
+      <div class="review-field"><strong>Origem:</strong> ${c.source === 'ai' ? 'Gerado por IA (' + escapeHtml(c.ai_model || '?') + ')' : 'Comunidade'}</div>
       <div class="review-field"><strong>Data:</strong> ${formatDate(c.created_at)}</div>
     `;
 
@@ -261,7 +261,7 @@
       reviewed_at: new Date().toISOString(),
     }).eq('id', id);
 
-    toast('✓ Contribuição aprovada e publicada', 'success');
+    toast('Contribuição aprovada e publicada', 'success');
     closeReview();
     loadContributions();
   }

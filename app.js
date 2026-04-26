@@ -70,68 +70,6 @@
   }
 
   // ══════════════════════════════════════════════════════════
-  // CINEMATIC INTRO
-  // ══════════════════════════════════════════════════════════
-  function runIntro(onDone) {
-    const root = $('intro');
-    const years = ['1876', '1947', '1969', '1989', '2007', '2017', '2025'];
-    const yrEl = $('intro-year');
-    const labelEl = $('intro-label');
-    const tagEl = $('intro-tagline');
-
-    const cv = $('intro-stars');
-    const ctx = cv.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    const w = cv.clientWidth, h = cv.clientHeight;
-    cv.width = w * dpr; cv.height = h * dpr; ctx.scale(dpr, dpr);
-    const stars = [];
-    for (let i = 0; i < 220; i++) {
-      stars.push({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.2 + 0.2, a: Math.random() * 0.8 + 0.1, tw: Math.random() * 0.04 });
-    }
-    let raf;
-    function tick() {
-      ctx.clearRect(0, 0, w, h);
-      for (const s of stars) {
-        s.a += (Math.random() - 0.5) * s.tw;
-        s.a = clamp(s.a, 0.1, 1);
-        ctx.globalAlpha = s.a;
-        ctx.fillStyle = '#dfe8ef';
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      raf = requestAnimationFrame(tick);
-    }
-    tick();
-
-    let yi = 0;
-    yrEl.classList.add('in');
-    labelEl.classList.add('in');
-    const flip = setInterval(() => {
-      yi = (yi + 1) % years.length;
-      yrEl.textContent = years[yi];
-    }, 280);
-
-    setTimeout(() => {
-      root.classList.add('phase-2');
-      tagEl.classList.add('in');
-    }, 700);
-
-    const end = () => {
-      clearInterval(flip);
-      cancelAnimationFrame(raf);
-      root.classList.add('gone');
-      setTimeout(() => {
-        root.style.display = 'none';
-        onDone && onDone();
-      }, 900);
-    };
-
-    $('intro-skip').onclick = end;
-    setTimeout(end, 3400);
-  }
-
-  // ══════════════════════════════════════════════════════════
   // NAVIGATION
   // ══════════════════════════════════════════════════════════
   function enterTimeline(animate) {
@@ -248,7 +186,7 @@
     img.src = ev.img;
 
     $('img-credit-text').textContent = ev.imgCredit;
-    $('img-credit-icon').textContent = ev.imgType === 'ai' ? '✦' : '◆';
+    $('img-credit-icon').textContent = ev.imgType === 'ai' ? 'IA' : '◆';
     $('img-credit').style.color = ev.imgType === 'ai' ? 'rgba(244,114,182,0.7)' : 'rgba(255,255,255,0.5)';
   }
 
@@ -1399,7 +1337,7 @@ Regras:
         contributorEmail: ($('contribute-email').value || '').trim() || null,
         source: 'community',
       });
-      toast('✓ Sugestão enviada — obrigado!', 3000);
+      toast('Sugestão enviada — obrigado!', 3000);
       closeModal('contribute-modal');
     } catch (err) {
       toast('Erro ao enviar: ' + err.message, 3500);
@@ -1538,21 +1476,7 @@ Regras:
       if (ev) state.idx = state.events.indexOf(ev);
     }
 
-    // Intro: once per 7 days
-    const INTRO_KEY = 'tl_intro_seen';
-    const lastSeen = +localStorage.getItem(INTRO_KEY) || 0;
-    const week = 7 * 24 * 3600 * 1000;
-    const firstTime = Date.now() - lastSeen > week;
-
-    if (firstTime) {
-      runIntro(() => {
-        localStorage.setItem(INTRO_KEY, Date.now());
-        if (r.view === 'event') enterTimeline(true);
-      });
-    } else {
-      $('intro').style.display = 'none';
-      if (r.view === 'event') enterTimeline(false);
-    }
+    if (r.view === 'event') enterTimeline(false);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

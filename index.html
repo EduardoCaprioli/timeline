@@ -20,18 +20,6 @@
 
   <div id="app">
 
-    <!-- ════════ CINEMATIC INTRO ════════ -->
-    <div id="intro">
-      <canvas id="intro-stars"></canvas>
-      <div id="intro-stack">
-        <div id="intro-year" class="i-fade">1876</div>
-        <div id="intro-line"></div>
-        <div id="intro-label" class="i-fade">Timeline</div>
-        <div id="intro-tagline" class="i-fade">Uma nova forma de explorar a história</div>
-      </div>
-      <button id="intro-skip">pular ›</button>
-    </div>
-
     <!-- ════════ HOME ════════ -->
     <div id="home">
       <div id="home-theme-switch">
@@ -69,7 +57,7 @@
         <div id="tb-logo"><span>Timeline</span></div>
 
         <div id="tb-actions">
-          <button class="tb-btn mobile-hide" id="btn-story" title="Story Mode">✦ Story</button>
+          <button class="tb-btn mobile-hide" id="btn-story" title="Story Mode">Story</button>
           <button class="tb-btn" id="btn-share" title="Compartilhar">↗ Share</button>
           <button class="tb-btn" id="btn-help" title="Atalhos">?</button>
           <button class="tb-btn mobile-hide" id="btn-contribute">Contribuir</button>
@@ -90,7 +78,7 @@
           <div id="parents-box" class="f"></div>
 
           <div id="cta">
-            <button class="cta-btn cta-primary" id="btn-explore">✦ Aprofundar com IA</button>
+            <button class="cta-btn cta-primary" id="btn-explore">Aprofundar com IA</button>
             <button class="cta-btn cta-ghost" id="btn-next">Próximo →</button>
             <button class="cta-btn cta-ghost" id="btn-video" style="display:none">▶ Vídeo</button>
           </div>
@@ -123,7 +111,7 @@
     <div id="ai-panel">
       <div id="ai-header">
         <div>
-          <div id="ai-title">✦ Aprofundar</div>
+          <div id="ai-title">Aprofundar</div>
           <div id="ai-subtitle">Claude vai expandir este momento</div>
         </div>
         <button id="ai-close" aria-label="Fechar">×</button>
@@ -172,7 +160,7 @@
       <div class="modal-bg"></div>
       <div class="modal-content modal-wide">
         <button class="modal-close" data-close="story-modal">×</button>
-        <h3>✦ Story Mode</h3>
+        <h3>Story Mode</h3>
         <p class="story-sub">Escolha 2 a 5 momentos. Claude narrará a história que os conecta.</p>
         <div id="story-picker"></div>
         <div class="story-actions">
@@ -239,10 +227,10 @@
         <p class="modal-sub" id="contribute-event-name"></p>
 
         <div id="contribute-type-picker">
-          <button class="ctype-btn active" data-type="edit_text" data-field="description">✎ Corrigir texto</button>
-          <button class="ctype-btn" data-type="edit_image" data-field="img_url">🖼 Sugerir imagem (URL)</button>
-          <button class="ctype-btn" data-type="add_quote" data-field="quote_text">❝ Adicionar citação</button>
-          <button class="ctype-btn" data-type="fix_date" data-field="date_display">📅 Corrigir data</button>
+          <button class="ctype-btn active" data-type="edit_text" data-field="description">Corrigir texto</button>
+          <button class="ctype-btn" data-type="edit_image" data-field="img_url">Sugerir imagem</button>
+          <button class="ctype-btn" data-type="add_quote" data-field="quote_text">Adicionar citação</button>
+          <button class="ctype-btn" data-type="fix_date" data-field="date_display">Corrigir data</button>
         </div>
 
         <textarea id="contribute-text" placeholder="Cole aqui o texto corrigido, URL da imagem, citação ou data corrigida..." rows="5"></textarea>
