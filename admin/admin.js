@@ -688,9 +688,45 @@
     $('btn-refresh-videos').addEventListener('click', loadVideoSection);
 
     $('video-events-list').addEventListener('click', async (e) => {
-      const btn = e.target.closest('.btn-dl-img');
-      if (!btn) return;
-      await downloadEventImage(btn.dataset.url, btn.dataset.evid);
+      // Download image
+      const dlBtn = e.target.closest('.btn-dl-img');
+      if (dlBtn) { await downloadEventImage(dlBtn.dataset.url, dlBtn.dataset.evid); return; }
+
+      // Delete video
+      const delBtn = e.target.closest('.btn-del-video');
+      if (delBtn) {
+        if (!confirm('Excluir o vídeo de "' + delBtn.dataset.evid + '"?\nEsta ação não pode ser desfeita.')) return;
+        toast('Excluindo...', 'info');
+        try {
+          await deleteEventVideo(delBtn.dataset.evid, delBtn.dataset.url);
+          toast('Vídeo excluído', 'info');
+          loadVideoSection();
+        } catch (err) { toast('Erro: ' + err.message, 'error'); }
+        return;
+      }
+
+      // Toggle display mode (segmented control)
+      const toggleBtn = e.target.closest('.mcard-toggle-btn');
+      if (toggleBtn && !toggleBtn.disabled) {
+        const card = toggleBtn.closest('.media-card');
+        const evId = card.dataset.evid;
+        const mode = toggleBtn.dataset.mode;
+        const { error } = await db.from('events').update({ media_display: mode }).eq('id', evId);
+        if (error) { toast('Erro: ' + error.message, 'error'); return; }
+        toast(mode === 'video' ? 'Exibindo vídeo' : 'Exibindo imagem', 'success');
+        loadVideoSection();
+        return;
+      }
+
+      // Play/pause video preview on click
+      const vidWrap = e.target.closest('.mcard-video-wrap');
+      if (vidWrap) {
+        const vid = vidWrap.querySelector('video');
+        if (!vid) return;
+        if (vid.paused) { vid.play(); vidWrap.classList.add('playing'); }
+        else { vid.pause(); vidWrap.classList.remove('playing'); }
+        return;
+      }
     });
 
     $('video-events-list').addEventListener('change', async (e) => {
@@ -702,14 +738,12 @@
         try {
           const url = await uploadEventImageFile(evId, file);
           const { error } = await db.from('events').update({
-            img_url: url, img_type: 'manual', img_credit: 'Upload manual',
+            img_url: url, img_type: 'photo', img_credit: 'Upload manual',
           }).eq('id', evId);
           if (error) throw new Error(error.message);
-          toast('Imagem salva com sucesso', 'success');
+          toast('Imagem salva', 'success');
           loadVideoSection();
-        } catch (err) {
-          toast('Erro no upload: ' + err.message, 'error');
-        }
+        } catch (err) { toast('Erro no upload: ' + err.message, 'error'); }
       } else if (e.target.matches('.ver-file-input')) {
         const file = e.target.files[0];
         if (!file) return;
@@ -719,17 +753,9 @@
           const url = await uploadEventVideo(evId, file);
           const { error } = await db.from('events').update({ video_url: url }).eq('id', evId);
           if (error) throw new Error(error.message);
-          toast('Video salvo com sucesso', 'success');
+          toast('Vídeo salvo', 'success');
           loadVideoSection();
-        } catch (err) {
-          toast('Erro no upload: ' + err.message, 'error');
-        }
-      } else if (e.target.matches('.ver-display')) {
-        const evId = e.target.dataset.evid;
-        const mode = e.target.value;
-        const { error } = await db.from('events').update({ media_display: mode }).eq('id', evId);
-        if (error) { toast('Erro: ' + error.message, 'error'); return; }
-        toast(mode === 'video' ? 'Evento agora exibe video' : 'Evento agora exibe imagem', 'success');
+        } catch (err) { toast('Erro no upload: ' + err.message, 'error'); }
       }
     });
   }
@@ -873,71 +899,66 @@
       container.innerHTML = '<div class="empty-state">Nenhum evento publicado.</div>';
       return;
     }
-    container.innerHTML = `
-      <table class="ver-table">
-        <thead>
-          <tr>
-            <th>Ano</th><th>Evento</th><th>Imagem</th><th>Video</th><th>Exibir como</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${events.map((ev) => {
-            const active = ev.media_display || 'image';
-            const imgActive = active === 'image';
-            const vidActive = active === 'video';
-            return `
-            <tr>
-              <td class="td-meta" style="vertical-align:top;padding-top:14px">${ev.year}</td>
-              <td style="vertical-align:top;padding-top:14px">
-                <div class="td-title">${escapeHtml(ev.title)}</div>
-                <div class="td-meta">${escapeHtml(ev.id)}</div>
-              </td>
-              <td>
-                <div class="ver-media-cell">
-                  ${ev.img_url
-                    ? `<div class="ver-thumb-wrap${imgActive ? ' is-active' : ''}">
-                        <img class="ver-thumb" src="${escapeHtml(ev.img_url)}" loading="lazy" />
-                        ${imgActive ? '<span class="ver-active-label">ativo</span>' : ''}
-                       </div>`
-                    : '<span class="ver-no-media">sem imagem</span>'
-                  }
-                  <div class="ver-actions">
-                    ${ev.img_url ? `<button class="btn-sm ver-action btn-dl-img" data-evid="${escapeHtml(ev.id)}" data-url="${escapeHtml(ev.img_url)}">Baixar</button>` : ''}
-                    <label class="btn-sm ver-upload-label">
-                      ${ev.img_url ? 'Trocar' : 'Upload'}
-                      <input type="file" accept="image/jpeg,image/png,image/webp" class="img-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
-                    </label>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <div class="ver-media-cell">
-                  ${ev.video_url
-                    ? `<div class="ver-thumb-wrap${vidActive ? ' is-active' : ''}">
-                        <div class="ver-video-thumb">▶</div>
-                        ${vidActive ? '<span class="ver-active-label">ativo</span>' : ''}
-                       </div>`
-                    : '<span class="ver-no-media">sem video</span>'
-                  }
-                  <div class="ver-actions">
-                    <label class="btn-sm ver-upload-label">
-                      ${ev.video_url ? 'Substituir' : 'Upload'}
-                      <input type="file" accept="video/mp4,video/webm" class="ver-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
-                    </label>
-                  </div>
-                </div>
-              </td>
-              <td style="vertical-align:top;padding-top:14px">
-                <select class="ver-display" data-evid="${escapeHtml(ev.id)}" ${!ev.video_url ? 'disabled' : ''}>
-                  <option value="image" ${!vidActive ? 'selected' : ''}>Imagem</option>
-                  <option value="video" ${vidActive ? 'selected' : ''}>Video</option>
-                </select>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    `;
+    container.innerHTML = `<div class="media-grid">${events.map((ev) => {
+      const active = ev.media_display || 'image';
+      const imgActive = active === 'image';
+      const vidActive = active === 'video';
+      return `
+      <div class="media-card" data-evid="${escapeHtml(ev.id)}">
+        <div class="mcard-header">
+          <span class="mcard-year">${ev.year}</span>
+          <div class="mcard-header-info">
+            <span class="mcard-title">${escapeHtml(ev.title)}</span>
+            <span class="mcard-id">${escapeHtml(ev.id)}</span>
+          </div>
+        </div>
+        <div class="mcard-body">
+          <div class="mcard-media">
+            <div class="mcard-media-label">Imagem</div>
+            ${ev.img_url
+              ? `<div class="mcard-thumb-wrap${imgActive ? ' is-active' : ''}">
+                  <img class="mcard-img" src="${escapeHtml(ev.img_url)}" loading="lazy" />
+                  ${imgActive ? '<span class="mcard-active-dot">● ativo</span>' : ''}
+                </div>`
+              : '<div class="mcard-no-media">Sem imagem</div>'
+            }
+            <div class="mcard-actions">
+              ${ev.img_url ? `<button class="mcard-btn btn-dl-img" data-evid="${escapeHtml(ev.id)}" data-url="${escapeHtml(ev.img_url)}">↓ Baixar</button>` : ''}
+              <label class="mcard-btn mcard-upload-lbl">
+                ${ev.img_url ? '↑ Trocar' : '↑ Upload'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" class="img-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
+              </label>
+            </div>
+          </div>
+          <div class="mcard-divider"></div>
+          <div class="mcard-media">
+            <div class="mcard-media-label">Vídeo</div>
+            ${ev.video_url
+              ? `<div class="mcard-thumb-wrap mcard-video-wrap${vidActive ? ' is-active' : ''}">
+                  <video class="mcard-video" src="${escapeHtml(ev.video_url)}" preload="metadata" muted playsinline></video>
+                  <div class="mcard-video-overlay">▶</div>
+                  ${vidActive ? '<span class="mcard-active-dot">● ativo</span>' : ''}
+                </div>`
+              : '<div class="mcard-no-media">Sem vídeo</div>'
+            }
+            <div class="mcard-actions">
+              <label class="mcard-btn mcard-upload-lbl">
+                ${ev.video_url ? '↑ Substituir' : '↑ Upload'}
+                <input type="file" accept="video/mp4,video/webm" class="ver-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
+              </label>
+              ${ev.video_url ? `<button class="mcard-btn danger btn-del-video" data-evid="${escapeHtml(ev.id)}" data-url="${escapeHtml(ev.video_url)}">✕</button>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="mcard-footer">
+          <span class="mcard-footer-label">Exibir como</span>
+          <div class="mcard-toggle">
+            <button class="mcard-toggle-btn${imgActive ? ' active' : ''}" data-mode="image">Imagem</button>
+            <button class="mcard-toggle-btn${vidActive ? ' active' : ''}" data-mode="video"${!ev.video_url ? ' disabled' : ''}>Vídeo</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
   }
 
   async function uploadEventImageFile(eventId, file) {
@@ -966,6 +987,17 @@
     } catch (err) {
       toast('Erro ao baixar: ' + err.message, 'error');
     }
+  }
+
+  async function deleteEventVideo(eventId, videoUrl) {
+    const path = videoUrl.split('/event-videos/')[1];
+    if (!path) throw new Error('Caminho do arquivo inválido');
+    const { error: stErr } = await db.storage.from('event-videos').remove([path]);
+    if (stErr) throw new Error('Storage: ' + stErr.message);
+    const { error: dbErr } = await db.from('events')
+      .update({ video_url: null, media_display: 'image' })
+      .eq('id', eventId);
+    if (dbErr) throw new Error('DB: ' + dbErr.message);
   }
 
   async function uploadEventVideo(eventId, file) {
