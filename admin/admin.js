@@ -738,7 +738,7 @@
         try {
           const url = await uploadEventImageFile(evId, file);
           const { error } = await db.from('events').update({
-            img_url: url, img_type: 'photo', img_credit: 'Upload manual',
+            img_url: url, img_credit: 'Upload manual',
           }).eq('id', evId);
           if (error) throw new Error(error.message);
           toast('Imagem salva', 'success');
