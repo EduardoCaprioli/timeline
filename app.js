@@ -170,12 +170,36 @@
     const loader = $('img-loading');
     hero.classList.remove('loaded', 'kb');
 
+    // Remove any previous video element
+    const prevVid = hero.querySelector('.hero-video');
+    if (prevVid) prevVid.remove();
+    hero.style.backgroundImage = '';
+
+    // Video mode
+    if (ev.mediaDisplay === 'video' && ev.videoUrl) {
+      loader.classList.remove('show');
+      const vid = document.createElement('video');
+      vid.className = 'hero-video';
+      vid.autoplay = true;
+      vid.loop = true;
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;';
+      vid.src = ev.videoUrl;
+      vid.oncanplay = () => { hero.classList.add('loaded'); requestAnimationFrame(() => hero.classList.add('kb')); };
+      hero.insertBefore(vid, hero.firstChild);
+      $('img-credit-text').textContent = 'Video';
+      $('img-credit-icon').textContent = '▶';
+      $('img-credit').style.color = 'rgba(96,165,250,0.7)';
+      return;
+    }
+
+    // Image mode
     if (!ev.img) {
       loader.classList.remove('show');
       showHeroGradient(ev);
       return;
     }
-
     loader.classList.add('show');
     const img = new Image();
     img.onload = () => {

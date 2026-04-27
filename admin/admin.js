@@ -604,9 +604,14 @@
     $('stat-media-ai').textContent = aiImg.count ?? '—';
     $('stat-media-total').textContent = total.count ?? '—';
 
+    // Load saved prompt base
+    const { data: pbData } = await db.from('settings').select('value').eq('key', 'img_prompt_base').maybeSingle();
+    if (pbData) $('img-prompt-base').value = pbData.value || '';
+
     renderImgProviderCards();
     updateImgKeySection();
     attachMediaListeners();
+    loadVideoSection();
   }
 
   function renderImgProviderCards() {
@@ -667,14 +672,50 @@
     $('btn-generate-pending').addEventListener('click', () => runImageGeneration(false));
     $('btn-generate-all').addEventListener('click', () => runImageGeneration(true));
     $('btn-abort-gen').addEventListener('click', () => { genAbort = true; });
+
+    // Prompt base save
+    $('btn-save-prompt-base').addEventListener('click', async () => {
+      const val = $('img-prompt-base').value.trim();
+      const { error } = await db.from('settings').upsert(
+        { key: 'img_prompt_base', value: val, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+      if (error) toast('Erro ao salvar: ' + error.message, 'error');
+      else toast('Estilo global salvo', 'success');
+    });
+
+    // Video section
+    $('btn-refresh-videos').addEventListener('click', loadVideoSection);
+
+    $('video-events-list').addEventListener('change', async (e) => {
+      if (e.target.matches('.ver-file-input')) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const evId = e.target.dataset.evid;
+        toast('Fazendo upload...', 'info');
+        try {
+          const url = await uploadEventVideo(evId, file);
+          const { error } = await db.from('events').update({ video_url: url }).eq('id', evId);
+          if (error) throw new Error(error.message);
+          toast('Video salvo com sucesso', 'success');
+          loadVideoSection();
+        } catch (err) {
+          toast('Erro no upload: ' + err.message, 'error');
+        }
+      } else if (e.target.matches('.ver-display')) {
+        const evId = e.target.dataset.evid;
+        const mode = e.target.value;
+        const { error } = await db.from('events').update({ media_display: mode }).eq('id', evId);
+        if (error) { toast('Erro: ' + error.message, 'error'); return; }
+        toast(mode === 'video' ? 'Evento agora exibe video' : 'Evento agora exibe imagem', 'success');
+      }
+    });
   }
 
   function buildAdminImagePrompt(ev) {
-    return [
-      ev.title, String(ev.year), ev.era || '',
-      'historical scene', 'cinematic photography', 'dramatic lighting',
-      'photorealistic', 'detailed', 'wide format', 'no text', 'no watermark', 'no logos',
-    ].filter(Boolean).join(', ');
+    const base = ($('img-prompt-base') && $('img-prompt-base').value.trim()) ||
+      'cinematic composition, dramatic lighting, photorealistic, 8K resolution, editorial photography';
+    return `${base}. ${ev.title}, ${ev.year}${ev.era ? ', ' + ev.era : ''}, historical scene, no text, no watermark, no logos`;
   }
 
   async function callImgAPI(ev, providerId, apiKey) {
@@ -787,6 +828,75 @@
     $('btn-generate-all').disabled = false;
     toast(genAbort ? 'Geração interrompida' : `${done} eventos processados`, 'success');
     loadMediaAI();
+  }
+
+  // ── VIDEOS POR EVENTO ─────────────────────────────────────
+  async function loadVideoSection() {
+    const container = $('video-events-list');
+    container.innerHTML = '<div class="empty-state">Carregando...</div>';
+    const { data: events, error } = await db.from('events')
+      .select('*')
+      .eq('is_published', true)
+      .order('year', { ascending: true });
+    if (error) {
+      container.innerHTML = '<div class="empty-state">Erro ao carregar. Execute a migração SQL para adicionar as colunas <code>video_url</code> e <code>media_display</code>.</div>';
+      return;
+    }
+    renderVideoEvents(events || []);
+  }
+
+  function renderVideoEvents(events) {
+    const container = $('video-events-list');
+    if (!events.length) {
+      container.innerHTML = '<div class="empty-state">Nenhum evento publicado.</div>';
+      return;
+    }
+    container.innerHTML = `
+      <table class="ver-table">
+        <thead>
+          <tr>
+            <th>Ano</th><th>Evento</th><th>Imagem</th><th>Video</th><th>Exibir como</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${events.map((ev) => `
+            <tr>
+              <td class="td-meta">${ev.year}</td>
+              <td>
+                <div class="td-title">${escapeHtml(ev.title)}</div>
+                <div class="td-meta">${escapeHtml(ev.id)}</div>
+              </td>
+              <td>${ev.img_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}</td>
+              <td>${ev.video_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}</td>
+              <td>
+                <select class="ver-display" data-evid="${escapeHtml(ev.id)}" ${!ev.video_url ? 'disabled' : ''}>
+                  <option value="image" ${(ev.media_display || 'image') !== 'video' ? 'selected' : ''}>Imagem</option>
+                  <option value="video" ${ev.media_display === 'video' ? 'selected' : ''}>Video</option>
+                </select>
+              </td>
+              <td>
+                <label class="btn-sm ver-upload-label">
+                  ${ev.video_url ? 'Substituir' : 'Upload'}
+                  <input type="file" accept="video/mp4,video/webm" class="ver-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
+                </label>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  async function uploadEventVideo(eventId, file) {
+    const ext = file.name.split('.').pop().toLowerCase() || 'mp4';
+    const path = `${eventId}.${ext}`;
+    const { error } = await db.storage.from('event-videos').upload(path, file, {
+      contentType: file.type || 'video/mp4',
+      upsert: true,
+    });
+    if (error) throw new Error('Storage: ' + error.message);
+    const { data } = db.storage.from('event-videos').getPublicUrl(path);
+    return data.publicUrl;
   }
 
   // ── INIT ──────────────────────────────────────────────────

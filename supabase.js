@@ -50,6 +50,8 @@
       img: row.img_url,
       imgCredit: row.img_credit,
       imgType: row.img_type,
+      videoUrl: row.video_url || null,
+      mediaDisplay: row.media_display || 'image',
       quote: row.quote_text ? { text: row.quote_text, by: row.quote_by } : null,
       video: row.video_id || null,
       yearEnd: row.year_end || null,

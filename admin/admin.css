@@ -432,6 +432,36 @@ tbody tr:hover{background:var(--hover);}
 .toggle-switch input:checked + .toggle-thumb{background:var(--accent);}
 .toggle-switch input:checked + .toggle-thumb::after{transform:translateX(20px);}
 
+/* ── VIDEO EVENTS TABLE ── */
+.ver-table{width:100%;border-collapse:collapse;}
+.ver-table thead th{
+  text-align:left;padding:8px 10px;
+  font-size:10px;letter-spacing:0.08em;text-transform:uppercase;
+  color:var(--ink-mute);font-weight:500;
+  border-bottom:1px solid var(--border);background:#fafbfd;
+}
+.ver-table tbody td{
+  padding:10px 10px;border-bottom:1px solid var(--border);
+  font-size:12px;vertical-align:middle;
+}
+.ver-table tbody tr:last-child td{border-bottom:none;}
+.ver-table tbody tr:hover{background:var(--hover);}
+.ver-display{
+  padding:4px 8px;border:1px solid var(--border);border-radius:6px;
+  background:#fff;font-size:11px;color:var(--ink);cursor:pointer;outline:none;
+  transition:border 0.15s;
+}
+.ver-display:focus{border-color:var(--accent);}
+.ver-display:disabled{opacity:0.4;cursor:not-allowed;}
+.ver-upload-label{
+  display:inline-block;cursor:pointer;
+  padding:5px 10px;font-size:11px;
+  background:var(--card);border:1px solid var(--border);
+  color:var(--ink-soft);border-radius:6px;
+  transition:all 0.15s;letter-spacing:0.02em;
+}
+.ver-upload-label:hover{border-color:var(--ink);color:var(--ink);}
+
 /* ── RESPONSIVE ── */
 @media (max-width:900px){
   #sidebar{width:64px;}

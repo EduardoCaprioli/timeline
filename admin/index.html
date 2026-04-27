@@ -349,6 +349,19 @@
               <button class="btn-primary" id="btn-generate-pending" disabled>Gerar pendentes</button>
             </div>
           </div>
+
+          <!-- Prompt base / Estilo global -->
+          <div style="padding:16px 24px;border-bottom:1px solid var(--border)">
+            <div class="form-group">
+              <label>Estilo global <span style="color:var(--ink-mute);font-weight:300">— prefixado em todos os prompts gerados</span></label>
+              <textarea id="img-prompt-base" rows="2" placeholder="Cinematic composition, dramatic lighting, photorealistic, 8K, editorial photography, no text, no watermark, no logos..."></textarea>
+              <small>Deixe em branco para usar o estilo padrão. Salvo na tabela <code>settings</code>.</small>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+              <button class="btn-ghost btn-sm" id="btn-save-prompt-base">Salvar estilo</button>
+            </div>
+          </div>
+
           <div id="img-progress-wrap" style="padding:0 24px 16px;display:none">
             <div class="img-progress-bar"><div class="img-progress-fill" id="img-progress-fill"></div></div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;align-items:center">
@@ -359,31 +372,17 @@
           <div id="img-log" style="max-height:280px;overflow-y:auto;padding:0 24px 20px"></div>
         </div>
 
-        <!-- Vídeos Em breve -->
+        <!-- Videos por evento -->
         <div class="settings-section">
           <div class="settings-section-header">
             <div>
-              <h2>Vídeos por IA <span class="badge b-soon">Em breve</span></h2>
-              <p>Clipes curtos em loop por evento. Nenhum provedor gratuito e sem marca d'água disponível hoje.</p>
+              <h2>Videos por evento</h2>
+              <p>Faça upload de um video curto por evento. Alterne entre imagem e video como hero de cada evento.</p>
             </div>
-            <label class="toggle-switch disabled">
-              <input type="checkbox" id="toggle-ai-video" disabled />
-              <span class="toggle-thumb"></span>
-            </label>
+            <button class="btn-ghost btn-sm" id="btn-refresh-videos">Atualizar</button>
           </div>
-          <div class="settings-cards">
-            <div class="settings-card disabled">
-              <div class="scard-head"><span class="scard-name">Kling AI</span><span class="badge b-soon">Em breve</span></div>
-              <p class="scard-desc">Vídeos de até 5s. API em beta aberto da Kuaishou.</p>
-            </div>
-            <div class="settings-card disabled">
-              <div class="scard-head"><span class="scard-name">Runway Gen-3</span><span class="badge b-soon">Pago</span></div>
-              <p class="scard-desc">API estável e de alta qualidade. Plano gratuito muito limitado.</p>
-            </div>
-            <div class="settings-card disabled">
-              <div class="scard-head"><span class="scard-name">Wan 2.1 (Alibaba)</span><span class="badge b-soon">Open source</span></div>
-              <p class="scard-desc">Modelo open source. Requer GPU própria ou créditos em Hugging Face.</p>
-            </div>
+          <div id="video-events-list" style="padding:0 24px 20px">
+            <div class="empty-state">Carregando...</div>
           </div>
         </div>
       </div>
