@@ -881,16 +881,26 @@
           </tr>
         </thead>
         <tbody>
-          ${events.map((ev) => `
+          ${events.map((ev) => {
+            const active = ev.media_display || 'image';
+            const imgActive = active === 'image';
+            const vidActive = active === 'video';
+            return `
             <tr>
-              <td class="td-meta">${ev.year}</td>
-              <td>
+              <td class="td-meta" style="vertical-align:top;padding-top:14px">${ev.year}</td>
+              <td style="vertical-align:top;padding-top:14px">
                 <div class="td-title">${escapeHtml(ev.title)}</div>
                 <div class="td-meta">${escapeHtml(ev.id)}</div>
               </td>
               <td>
                 <div class="ver-media-cell">
-                  ${ev.img_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}
+                  ${ev.img_url
+                    ? `<div class="ver-thumb-wrap${imgActive ? ' is-active' : ''}">
+                        <img class="ver-thumb" src="${escapeHtml(ev.img_url)}" loading="lazy" />
+                        ${imgActive ? '<span class="ver-active-label">ativo</span>' : ''}
+                       </div>`
+                    : '<span class="ver-no-media">sem imagem</span>'
+                  }
                   <div class="ver-actions">
                     ${ev.img_url ? `<button class="btn-sm ver-action btn-dl-img" data-evid="${escapeHtml(ev.id)}" data-url="${escapeHtml(ev.img_url)}">Baixar</button>` : ''}
                     <label class="btn-sm ver-upload-label">
@@ -902,7 +912,13 @@
               </td>
               <td>
                 <div class="ver-media-cell">
-                  ${ev.video_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}
+                  ${ev.video_url
+                    ? `<div class="ver-thumb-wrap${vidActive ? ' is-active' : ''}">
+                        <div class="ver-video-thumb">▶</div>
+                        ${vidActive ? '<span class="ver-active-label">ativo</span>' : ''}
+                       </div>`
+                    : '<span class="ver-no-media">sem video</span>'
+                  }
                   <div class="ver-actions">
                     <label class="btn-sm ver-upload-label">
                       ${ev.video_url ? 'Substituir' : 'Upload'}
@@ -911,14 +927,14 @@
                   </div>
                 </div>
               </td>
-              <td>
+              <td style="vertical-align:top;padding-top:14px">
                 <select class="ver-display" data-evid="${escapeHtml(ev.id)}" ${!ev.video_url ? 'disabled' : ''}>
-                  <option value="image" ${(ev.media_display || 'image') !== 'video' ? 'selected' : ''}>Imagem</option>
-                  <option value="video" ${ev.media_display === 'video' ? 'selected' : ''}>Video</option>
+                  <option value="image" ${!vidActive ? 'selected' : ''}>Imagem</option>
+                  <option value="video" ${vidActive ? 'selected' : ''}>Video</option>
                 </select>
               </td>
-            </tr>
-          `).join('')}
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     `;
