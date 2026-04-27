@@ -453,6 +453,9 @@ tbody tr:hover{background:var(--hover);}
 }
 .ver-display:focus{border-color:var(--accent);}
 .ver-display:disabled{opacity:0.4;cursor:not-allowed;}
+.ver-media-cell{display:flex;flex-direction:column;gap:5px;}
+.ver-actions{display:flex;gap:4px;flex-wrap:wrap;}
+.ver-action{white-space:nowrap;}
 .ver-upload-label{
   display:inline-block;cursor:pointer;
   padding:5px 10px;font-size:11px;

@@ -687,8 +687,30 @@
     // Video section
     $('btn-refresh-videos').addEventListener('click', loadVideoSection);
 
+    $('video-events-list').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-dl-img');
+      if (!btn) return;
+      await downloadEventImage(btn.dataset.url, btn.dataset.evid);
+    });
+
     $('video-events-list').addEventListener('change', async (e) => {
-      if (e.target.matches('.ver-file-input')) {
+      if (e.target.matches('.img-file-input')) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const evId = e.target.dataset.evid;
+        toast('Fazendo upload...', 'info');
+        try {
+          const url = await uploadEventImageFile(evId, file);
+          const { error } = await db.from('events').update({
+            img_url: url, img_type: 'manual', img_credit: 'Upload manual',
+          }).eq('id', evId);
+          if (error) throw new Error(error.message);
+          toast('Imagem salva com sucesso', 'success');
+          loadVideoSection();
+        } catch (err) {
+          toast('Erro no upload: ' + err.message, 'error');
+        }
+      } else if (e.target.matches('.ver-file-input')) {
         const file = e.target.files[0];
         if (!file) return;
         const evId = e.target.dataset.evid;
@@ -855,7 +877,7 @@
       <table class="ver-table">
         <thead>
           <tr>
-            <th>Ano</th><th>Evento</th><th>Imagem</th><th>Video</th><th>Exibir como</th><th></th>
+            <th>Ano</th><th>Evento</th><th>Imagem</th><th>Video</th><th>Exibir como</th>
           </tr>
         </thead>
         <tbody>
@@ -866,25 +888,68 @@
                 <div class="td-title">${escapeHtml(ev.title)}</div>
                 <div class="td-meta">${escapeHtml(ev.id)}</div>
               </td>
-              <td>${ev.img_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}</td>
-              <td>${ev.video_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}</td>
+              <td>
+                <div class="ver-media-cell">
+                  ${ev.img_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}
+                  <div class="ver-actions">
+                    ${ev.img_url ? `<button class="btn-sm ver-action btn-dl-img" data-evid="${escapeHtml(ev.id)}" data-url="${escapeHtml(ev.img_url)}">Baixar</button>` : ''}
+                    <label class="btn-sm ver-upload-label">
+                      ${ev.img_url ? 'Trocar' : 'Upload'}
+                      <input type="file" accept="image/jpeg,image/png,image/webp" class="img-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
+                    </label>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="ver-media-cell">
+                  ${ev.video_url ? '<span class="badge b-approved">Sim</span>' : '<span class="badge b-soon">—</span>'}
+                  <div class="ver-actions">
+                    <label class="btn-sm ver-upload-label">
+                      ${ev.video_url ? 'Substituir' : 'Upload'}
+                      <input type="file" accept="video/mp4,video/webm" class="ver-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
+                    </label>
+                  </div>
+                </div>
+              </td>
               <td>
                 <select class="ver-display" data-evid="${escapeHtml(ev.id)}" ${!ev.video_url ? 'disabled' : ''}>
                   <option value="image" ${(ev.media_display || 'image') !== 'video' ? 'selected' : ''}>Imagem</option>
                   <option value="video" ${ev.media_display === 'video' ? 'selected' : ''}>Video</option>
                 </select>
               </td>
-              <td>
-                <label class="btn-sm ver-upload-label">
-                  ${ev.video_url ? 'Substituir' : 'Upload'}
-                  <input type="file" accept="video/mp4,video/webm" class="ver-file-input" data-evid="${escapeHtml(ev.id)}" style="display:none" />
-                </label>
-              </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
     `;
+  }
+
+  async function uploadEventImageFile(eventId, file) {
+    const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+    const path = `${eventId}.${ext}`;
+    const { error } = await db.storage.from('event-images').upload(path, file, {
+      contentType: file.type || 'image/jpeg',
+      upsert: true,
+    });
+    if (error) throw new Error('Storage: ' + error.message);
+    const { data } = db.storage.from('event-images').getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function downloadEventImage(url, eventId) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const ext = blob.type.includes('png') ? 'png' : 'jpg';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = eventId + '.' + ext;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      toast('Erro ao baixar: ' + err.message, 'error');
+    }
   }
 
   async function uploadEventVideo(eventId, file) {
