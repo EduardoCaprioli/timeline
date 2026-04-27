@@ -24,7 +24,6 @@
     aiHistory: {},
     wikiCache: {},
     constell: null,
-    settings: { ai_images_enabled: true, ai_images_model: 'flux' },
   };
 
   // ══════════════════════════════════════════════════════════
@@ -168,28 +167,21 @@
   function loadHeroImage() {
     const ev = state.events[state.idx];
     const hero = $('hero-img');
+    const loader = $('img-loading');
     hero.classList.remove('loaded', 'kb');
 
-    // Quando IA ativa: gera imagem para todos os eventos (substitui img_url)
-    if (state.settings.ai_images_enabled) {
-      $('img-loading').classList.remove('show');
-      generateHeroImage(ev);
-      return;
-    }
-
-    // IA desativada: usa img_url existente ou gradiente
     if (!ev.img) {
-      $('img-loading').classList.remove('show');
+      loader.classList.remove('show');
       showHeroGradient(ev);
       return;
     }
 
-    $('img-loading').classList.add('show');
+    loader.classList.add('show');
     const img = new Image();
     img.onload = () => {
       hero.style.backgroundImage = `url(${ev.img})`;
       hero.classList.add('loaded');
-      $('img-loading').classList.remove('show');
+      loader.classList.remove('show');
       requestAnimationFrame(() => hero.classList.add('kb'));
       preloadNearby();
     };
@@ -208,47 +200,6 @@
     hero.style.background = `radial-gradient(circle at 70% 40%, ${color}40 0%, transparent 60%), radial-gradient(circle at 30% 80%, ${color}30 0%, transparent 70%)`;
     hero.classList.add('loaded');
     $('img-loading').classList.remove('show');
-  }
-
-  function buildImagePrompt(ev) {
-    const parts = [ev.t];
-    if (ev.y) parts.push(String(ev.y));
-    if (ev.era) parts.push(ev.era);
-    parts.push('historical scene', 'cinematic lighting', 'photorealistic', 'detailed', 'no text', 'no watermark', 'no logos');
-    return parts.join(', ');
-  }
-
-  function imageHashSeed(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-    return Math.abs(h);
-  }
-
-  async function generateHeroImage(ev) {
-    const cacheKey = 'tl_ai_img_' + ev.id;
-    const cached = sessionStorage.getItem(cacheKey);
-    const hero = $('hero-img');
-    const loader = $('img-loading');
-
-    const model = state.settings.ai_images_model || 'flux';
-    const src = cached || `https://image.pollinations.ai/prompt/${encodeURIComponent(buildImagePrompt(ev))}?width=900&height=500&model=${model}&nologo=true&seed=${imageHashSeed(ev.id)}`;
-
-    loader.classList.add('show');
-    $('img-credit-text').textContent = cached ? 'Pollinations.ai' : 'Gerando com IA...';
-    $('img-credit-icon').textContent = 'IA';
-    $('img-credit').style.color = 'rgba(244,114,182,0.7)';
-
-    const img = new Image();
-    img.onload = () => {
-      if (!cached) sessionStorage.setItem(cacheKey, src);
-      hero.style.backgroundImage = `url(${src})`;
-      hero.classList.add('loaded');
-      loader.classList.remove('show');
-      requestAnimationFrame(() => hero.classList.add('kb'));
-      $('img-credit-text').textContent = 'Pollinations.ai';
-    };
-    img.onerror = () => showHeroGradient(ev);
-    img.src = src;
   }
 
   // ══════════════════════════════════════════════════════════
@@ -1639,15 +1590,6 @@ Regras:
   // ══════════════════════════════════════════════════════════
   // INIT
   // ══════════════════════════════════════════════════════════
-  async function loadSettings() {
-    if (!window.TL_DB || !window.TL_DB.available) return;
-    try {
-      const s = await window.TL_DB.fetchSettings();
-      if (typeof s.ai_images_enabled === 'boolean') state.settings.ai_images_enabled = s.ai_images_enabled;
-      if (s.ai_images_model) state.settings.ai_images_model = s.ai_images_model;
-    } catch (e) { /* silencioso — usa defaults */ }
-  }
-
   async function loadEventsFromBackend() {
     if (!window.TL_DB || !window.TL_DB.available) {
       // Sem backend — mantém EVENTS local
@@ -1668,7 +1610,7 @@ Regras:
 
   async function init() {
     // Tenta carregar do backend (Supabase). Fallback silencioso para data.js.
-    const [usedBackend] = await Promise.all([loadEventsFromBackend(), loadSettings()]);
+    const usedBackend = await loadEventsFromBackend();
     if (usedBackend) console.info('Timeline · ' + state.events.length + ' eventos carregados do Supabase');
 
     // Home

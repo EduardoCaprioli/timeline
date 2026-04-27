@@ -304,54 +304,67 @@
         <div class="page-header">
           <div>
             <h1>Mídia IA</h1>
-            <p>Geração automática de imagens e vídeos para eventos sem mídia própria</p>
+            <p>Imagens geradas com antecedência — usuário vê instantaneamente ao abrir qualquer evento</p>
           </div>
         </div>
 
         <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:28px">
-          <div class="stat-card"><div class="stat-val" id="stat-media-no-img">—</div><div class="stat-label">Eventos sem imagem</div></div>
-          <div class="stat-card"><div class="stat-val" id="stat-media-ai">—</div><div class="stat-label">Imagens geradas por IA</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-media-no-img">—</div><div class="stat-label">Sem imagem</div></div>
+          <div class="stat-card"><div class="stat-val" id="stat-media-ai">—</div><div class="stat-label">Geradas por IA</div></div>
           <div class="stat-card"><div class="stat-val" id="stat-media-total">—</div><div class="stat-label">Total de eventos</div></div>
         </div>
 
-        <!-- Imagens por IA -->
+        <!-- Provedor -->
         <div class="settings-section">
           <div class="settings-section-header">
             <div>
-              <h2>Imagens por IA</h2>
-              <p>Gera automaticamente uma imagem ilustrativa para eventos sem foto usando Pollinations.ai</p>
+              <h2>Provedor de imagens</h2>
+              <p>Selecione o gerador e insira a chave. As imagens são salvas no Supabase Storage e ficam permanentes.</p>
             </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="toggle-ai-images" />
-              <span class="toggle-thumb"></span>
-            </label>
           </div>
-          <div class="settings-cards">
-            <div class="settings-card">
-              <div class="scard-head">
-                <span class="scard-name">Pollinations.ai</span>
-                <span class="badge b-free">Gratuito</span>
+          <div class="settings-cards" id="img-provider-cards">
+            <!-- renderizado pelo JS -->
+          </div>
+          <div id="img-key-section" style="padding:0 24px 20px">
+            <div class="form-group">
+              <label id="img-key-label">Chave de API</label>
+              <div style="display:flex;gap:8px">
+                <input type="password" id="img-api-key" style="flex:1" autocomplete="off" />
+                <button class="btn-primary" id="btn-save-img-key">Salvar</button>
               </div>
-              <p class="scard-desc">API pública sem chave necessária. Modelo Flux de alta qualidade. Resultado em 2–4 segundos. Imagens ficam em cache por sessão no navegador.</p>
-              <div class="form-group" style="margin-top:14px">
-                <label>Modelo de imagem</label>
-                <select id="ai-images-model">
-                  <option value="flux">Flux — padrão, boa qualidade</option>
-                  <option value="flux-realism">Flux Realism — mais fotorrealista</option>
-                  <option value="turbo">Turbo — mais rápido, menor qualidade</option>
-                </select>
-              </div>
-              <p class="scard-footer"><a href="https://pollinations.ai" target="_blank" rel="noopener">pollinations.ai</a></p>
+              <small><a id="img-key-link" href="#" target="_blank" rel="noopener">Obter chave</a></small>
             </div>
           </div>
         </div>
 
-        <!-- Vídeos por IA -->
+        <!-- Geração -->
+        <div class="settings-section">
+          <div class="settings-section-header">
+            <div>
+              <h2>Gerar imagens</h2>
+              <p id="img-queue-subtitle">Configure um provedor para começar</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-ghost" id="btn-generate-all" disabled>Gerar todas</button>
+              <button class="btn-primary" id="btn-generate-pending" disabled>Gerar pendentes</button>
+            </div>
+          </div>
+          <div id="img-progress-wrap" style="padding:0 24px 16px;display:none">
+            <div class="img-progress-bar"><div class="img-progress-fill" id="img-progress-fill"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;align-items:center">
+              <span class="scard-desc" id="img-progress-label">0 / 0</span>
+              <button class="btn-ghost btn-sm" id="btn-abort-gen">Interromper</button>
+            </div>
+          </div>
+          <div id="img-log" style="max-height:280px;overflow-y:auto;padding:0 24px 20px"></div>
+        </div>
+
+        <!-- Vídeos Em breve -->
         <div class="settings-section">
           <div class="settings-section-header">
             <div>
               <h2>Vídeos por IA <span class="badge b-soon">Em breve</span></h2>
-              <p>Clipes curtos em loop gerados por evento. Nenhum provedor gratuito e confiável disponível hoje.</p>
+              <p>Clipes curtos em loop por evento. Nenhum provedor gratuito e sem marca d'água disponível hoje.</p>
             </div>
             <label class="toggle-switch disabled">
               <input type="checkbox" id="toggle-ai-video" disabled />
@@ -361,15 +374,15 @@
           <div class="settings-cards">
             <div class="settings-card disabled">
               <div class="scard-head"><span class="scard-name">Kling AI</span><span class="badge b-soon">Em breve</span></div>
-              <p class="scard-desc">Vídeos de até 5s a partir de prompt. API em beta aberto da Kuaishou, com plano gratuito de cotas diárias.</p>
+              <p class="scard-desc">Vídeos de até 5s. API em beta aberto da Kuaishou.</p>
             </div>
             <div class="settings-card disabled">
               <div class="scard-head"><span class="scard-name">Runway Gen-3</span><span class="badge b-soon">Pago</span></div>
-              <p class="scard-desc">API estável e de alta qualidade. Plano gratuito muito limitado, inviável para uso em produção com volume.</p>
+              <p class="scard-desc">API estável e de alta qualidade. Plano gratuito muito limitado.</p>
             </div>
             <div class="settings-card disabled">
               <div class="scard-head"><span class="scard-name">Wan 2.1 (Alibaba)</span><span class="badge b-soon">Open source</span></div>
-              <p class="scard-desc">Modelo open source de alta qualidade. Requer GPU própria ou créditos de computação em Hugging Face.</p>
+              <p class="scard-desc">Modelo open source. Requer GPU própria ou créditos em Hugging Face.</p>
             </div>
           </div>
         </div>

@@ -562,8 +562,39 @@
   }
 
   // ── MÍDIA IA ──────────────────────────────────────────────
+  const IMG_PROVIDERS = [
+    {
+      id: 'gemini',
+      name: 'Google Gemini',
+      model: 'gemini-2.0-flash-preview-image-generation',
+      vendor: 'Google',
+      badge: 'Gratuito',
+      badgeClass: 'b-free',
+      placeholder: 'AIza...',
+      keyUrl: 'https://aistudio.google.com/apikey',
+      desc: 'Geração de imagens via Gemini 2.0 Flash. Usa a mesma chave do painel de IA. Plano gratuito disponível.',
+    },
+    {
+      id: 'dalle3',
+      name: 'DALL-E 3',
+      model: 'dall-e-3',
+      vendor: 'OpenAI',
+      badge: 'Pago',
+      badgeClass: 'b-soon',
+      placeholder: 'sk-...',
+      keyUrl: 'https://platform.openai.com/api-keys',
+      desc: 'Qualidade máxima. Gera imagens 1792×1024 em estilo fotorrealista. Requer créditos OpenAI.',
+    },
+  ];
+
+  let activeImgProvider = localStorage.getItem('tl_img_provider') || 'gemini';
+  let genAbort = false;
+
+  function getImgKey(id) { return localStorage.getItem('tl_img_key_' + id) || ''; }
+  function setImgKey(id, key) { localStorage.setItem('tl_img_key_' + id, key); }
+
   async function loadMediaAI() {
-    // Estatísticas de cobertura de imagens
+    // Stats
     const [noImg, aiImg, total] = await Promise.all([
       db.from('events').select('id', { count: 'exact', head: true }).is('img_url', null),
       db.from('events').select('id', { count: 'exact', head: true }).eq('img_type', 'ai'),
@@ -573,30 +604,49 @@
     $('stat-media-ai').textContent = aiImg.count ?? '—';
     $('stat-media-total').textContent = total.count ?? '—';
 
-    // Carregar configurações atuais
-    try {
-      const { data, error } = await db.from('settings').select('key, value');
-      if (error) throw error;
-      state.settings = {};
-      (data || []).forEach(({ key, value }) => { state.settings[key] = value; });
-    } catch (e) {
-      toast('Execute supabase-migration-settings.sql para ativar esta página', 'error');
-      return;
-    }
-
-    // Aplicar valores nos controles e registrar listeners (uma vez)
+    renderImgProviderCards();
+    updateImgKeySection();
     attachMediaListeners();
-    $('toggle-ai-images').checked = state.settings.ai_images_enabled !== false;
-    const modelSel = $('ai-images-model');
-    if (modelSel && state.settings.ai_images_model) modelSel.value = state.settings.ai_images_model;
   }
 
-  async function saveSetting(key, value) {
-    const { error } = await db.from('settings').upsert(
-      { key, value, updated_at: new Date().toISOString() },
-      { onConflict: 'key' }
-    );
-    if (error) throw error;
+  function renderImgProviderCards() {
+    const container = $('img-provider-cards');
+    container.innerHTML = IMG_PROVIDERS.map((p) => `
+      <div class="settings-card img-pcard ${p.id === activeImgProvider ? 'active' : ''}" data-pid="${p.id}" style="cursor:pointer">
+        <div class="scard-head">
+          <span class="scard-name">${p.name}</span>
+          <span class="badge ${p.badgeClass}">${p.badge}</span>
+        </div>
+        <p class="scard-desc">${p.desc}</p>
+        <p class="scard-footer" style="color:${getImgKey(p.id) ? '#1e7a4a' : '#aaa'}">
+          ${getImgKey(p.id) ? 'Chave salva' : 'Sem chave'}
+        </p>
+      </div>
+    `).join('');
+    container.querySelectorAll('.img-pcard').forEach((card) => {
+      card.addEventListener('click', () => {
+        activeImgProvider = card.dataset.pid;
+        localStorage.setItem('tl_img_provider', activeImgProvider);
+        renderImgProviderCards();
+        updateImgKeySection();
+      });
+    });
+  }
+
+  function updateImgKeySection() {
+    const p = IMG_PROVIDERS.find((x) => x.id === activeImgProvider);
+    if (!p) return;
+    $('img-key-label').textContent = 'Chave de API — ' + p.vendor;
+    $('img-api-key').placeholder = p.placeholder;
+    $('img-api-key').value = getImgKey(p.id) ? '••••••••' : '';
+    $('img-key-link').href = p.keyUrl;
+    $('img-key-link').textContent = 'Obter chave — ' + p.vendor;
+    const hasKey = !!getImgKey(activeImgProvider);
+    $('btn-generate-pending').disabled = !hasKey;
+    $('btn-generate-all').disabled = !hasKey;
+    $('img-queue-subtitle').textContent = hasKey
+      ? 'Imagens salvas no Supabase Storage e vinculadas ao evento permanentemente'
+      : 'Salve uma chave de API para habilitar a geração';
   }
 
   let mediaListenersAttached = false;
@@ -604,29 +654,139 @@
     if (mediaListenersAttached) return;
     mediaListenersAttached = true;
 
-    const toggleImages = $('toggle-ai-images');
-    const modelSel = $('ai-images-model');
-    if (!toggleImages || !modelSel) return;
-
-    toggleImages.addEventListener('change', async (e) => {
-      const enabled = e.target.checked;
-      try {
-        await saveSetting('ai_images_enabled', enabled);
-        toast(enabled ? 'Geração de imagens ativada' : 'Geração de imagens desativada', 'success');
-      } catch (err) {
-        toast('Erro ao salvar: ' + err.message, 'error');
-        e.target.checked = !enabled;
-      }
+    $('btn-save-img-key').addEventListener('click', () => {
+      const val = $('img-api-key').value.trim();
+      if (!val || val === '••••••••') return;
+      setImgKey(activeImgProvider, val);
+      $('img-api-key').value = '••••••••';
+      toast('Chave salva localmente', 'success');
+      renderImgProviderCards();
+      updateImgKeySection();
     });
 
-    modelSel.addEventListener('change', async (e) => {
+    $('btn-generate-pending').addEventListener('click', () => runImageGeneration(false));
+    $('btn-generate-all').addEventListener('click', () => runImageGeneration(true));
+    $('btn-abort-gen').addEventListener('click', () => { genAbort = true; });
+  }
+
+  function buildAdminImagePrompt(ev) {
+    return [
+      ev.title, String(ev.year), ev.era || '',
+      'historical scene', 'cinematic photography', 'dramatic lighting',
+      'photorealistic', 'detailed', 'wide format', 'no text', 'no watermark', 'no logos',
+    ].filter(Boolean).join(', ');
+  }
+
+  async function callImgAPI(ev, providerId, apiKey) {
+    const prompt = buildAdminImagePrompt(ev);
+
+    if (providerId === 'gemini') {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseModalities: ['image'], responseMimeType: 'image/jpeg' },
+          }),
+        }
+      );
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || res.status); }
+      const d = await res.json();
+      const part = d.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+      if (!part) throw new Error('Sem imagem na resposta');
+      return { b64: part.inlineData.data, mime: part.inlineData.mimeType || 'image/jpeg' };
+    }
+
+    if (providerId === 'dalle3') {
+      const res = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1792x1024', quality: 'standard', response_format: 'b64_json' }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || res.status); }
+      const d = await res.json();
+      return { b64: d.data[0].b64_json, mime: 'image/png' };
+    }
+
+    throw new Error('Provedor desconhecido');
+  }
+
+  function b64ToBlob(b64, mime) {
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  async function uploadEventImage(eventId, b64, mime) {
+    const ext = mime.includes('png') ? 'png' : 'jpg';
+    const path = `${eventId}.${ext}`;
+    const blob = b64ToBlob(b64, mime);
+    const { error } = await db.storage.from('event-images').upload(path, blob, { contentType: mime, upsert: true });
+    if (error) throw new Error('Storage: ' + error.message);
+    const { data } = db.storage.from('event-images').getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function runImageGeneration(regenerateAll) {
+    const apiKey = getImgKey(activeImgProvider);
+    if (!apiKey) { toast('Salve a chave de API primeiro', 'error'); return; }
+
+    const query = db.from('events').select('id, title, year, era').eq('is_published', true);
+    const { data: events, error } = regenerateAll ? await query : await query.is('img_url', null);
+    if (error) { toast('Erro ao carregar eventos: ' + error.message, 'error'); return; }
+    if (!events || !events.length) { toast('Nenhum evento para processar', 'info'); return; }
+
+    genAbort = false;
+    const prov = IMG_PROVIDERS.find((p) => p.id === activeImgProvider);
+    const log = $('img-log');
+    const progressWrap = $('img-progress-wrap');
+    const fill = $('img-progress-fill');
+    const label = $('img-progress-label');
+
+    $('btn-generate-pending').disabled = true;
+    $('btn-generate-all').disabled = true;
+    progressWrap.style.display = 'block';
+    log.innerHTML = '';
+
+    let done = 0;
+    const total = events.length;
+
+    for (const ev of events) {
+      if (genAbort) break;
+
+      const entry = document.createElement('div');
+      entry.className = 'img-log-entry';
+      entry.textContent = `Gerando: ${ev.title} (${ev.year})...`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+
       try {
-        await saveSetting('ai_images_model', e.target.value);
-        toast('Modelo atualizado', 'success');
+        const { b64, mime } = await callImgAPI(ev, activeImgProvider, apiKey);
+        const url = await uploadEventImage(ev.id, b64, mime);
+        await db.from('events').update({
+          img_url: url,
+          img_type: 'ai',
+          img_credit: prov.name + ' · ' + prov.vendor,
+        }).eq('id', ev.id);
+        entry.className = 'img-log-entry success';
+        entry.textContent = `${ev.title} (${ev.year})`;
       } catch (err) {
-        toast('Erro ao salvar: ' + err.message, 'error');
+        entry.className = 'img-log-entry error';
+        entry.textContent = `${ev.title}: ${err.message}`;
       }
-    });
+
+      done++;
+      fill.style.width = ((done / total) * 100) + '%';
+      label.textContent = `${done} / ${total}`;
+    }
+
+    $('btn-generate-pending').disabled = false;
+    $('btn-generate-all').disabled = false;
+    toast(genAbort ? 'Geração interrompida' : `${done} eventos processados`, 'success');
+    loadMediaAI();
   }
 
   // ── INIT ──────────────────────────────────────────────────
